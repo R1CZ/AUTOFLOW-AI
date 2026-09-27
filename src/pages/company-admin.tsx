@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useAuthStore } from '../stores';
 import * as db from '../lib/database';
-import { Card, Badge, Button, Table, SearchBar, Modal, Input, Select, StatCard, Tabs, Toast, ProgressBar, EmptyState, Dropdown } from '../components/ui';
+import { Card, Badge, Button, Table, SearchBar, Modal, Input, Select, StatCard, Tabs, Toast, ProgressBar, EmptyState, Dropdown, CopyButton } from '../components/ui';
 import { Users, Workflow, Zap, Activity, CreditCard, Settings as SettingsIcon, UserPlus, MoreVertical, Mail, Check, Eye, Link2, Unlink } from 'lucide-react';
 
 // Company Admin Dashboard
@@ -218,13 +218,19 @@ export function AdminUsersPage() {
   const users = db.getUsers(user.companyId);
   const filtered = search ? users.filter(u => u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())) : users;
 
+  const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string } | null>(null);
+
   const handleInvite = () => {
     if (!inviteData.email || !inviteData.name) return;
-    db.createUser({ email: inviteData.email, name: inviteData.name, companyId: user.companyId! });
-    db.addAuditLog({ actorId: user.id, actorName: user.name, action: 'user.invited', resource: 'user', resourceId: 'new', companyId: user.companyId! });
-    setShowInvite(false);
+    const result = db.createUserAccount({ email: inviteData.email, name: inviteData.name, companyId: user.companyId! });
+    if (!result) {
+      setToast({ message: 'Failed to create user. Email may already exist or user limit reached.', type: 'error' });
+      return;
+    }
+    db.addAuditLog({ actorId: user.id, actorName: user.name, action: 'user.created', resource: 'user', resourceId: result.user.id, companyId: user.companyId! });
+    setCreatedCredentials({ email: result.credentials.email, password: result.credentials.tempPassword });
     setInviteData({ email: '', name: '' });
-    setToast({ message: 'User invited successfully.', type: 'success' });
+    setToast({ message: 'User account created successfully.', type: 'success' });
   };
 
   const handleToggleStatus = (userId: string, currentStatus: string) => {
@@ -281,16 +287,46 @@ export function AdminUsersPage() {
         </Table>
       </Card>
 
-      <Modal open={showInvite} onClose={() => setShowInvite(false)} title="Invite Team Member">
-        <div className="space-y-4">
-          <Input label="Full Name" value={inviteData.name} onChange={e => setInviteData({ ...inviteData, name: e.target.value })} placeholder="Jane Smith" />
-          <Input label="Email Address" type="email" value={inviteData.email} onChange={e => setInviteData({ ...inviteData, email: e.target.value })} placeholder="jane@company.com" />
-          <Select label="Role" value="user" onChange={() => {}} options={[{ value: 'user', label: 'User' }, { value: 'company_admin', label: 'Company Admin' }]} />
-          <div className="flex gap-3 justify-end">
-            <Button variant="outline" onClick={() => setShowInvite(false)}>Cancel</Button>
-            <Button onClick={handleInvite}><Mail className="w-4 h-4" />Send Invitation</Button>
+      <Modal open={showInvite} onClose={() => { setShowInvite(false); setCreatedCredentials(null); }} title={createdCredentials ? 'Account Created' : 'Create User Account'}>
+        {createdCredentials ? (
+          <div className="space-y-4">
+            <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Check className="w-5 h-5 text-emerald-400" />
+                <p className="text-sm font-medium text-emerald-400">User account created successfully!</p>
+              </div>
+              <p className="text-xs text-slate-400">Share these credentials with the user so they can log in directly.</p>
+            </div>
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <p className="text-xs text-slate-400 mb-1">Email</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-white font-mono">{createdCredentials.email}</p>
+                  <CopyButton text={createdCredentials.email} />
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <p className="text-xs text-slate-400 mb-1">Temporary Password</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-white font-mono">{createdCredentials.password}</p>
+                  <CopyButton text={createdCredentials.password} />
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-amber-400">⚠️ Please share these credentials securely. The user should change their password after first login.</p>
+            <Button onClick={() => { setShowInvite(false); setCreatedCredentials(null); }} className="w-full">Done</Button>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-4">
+            <Input label="Full Name" value={inviteData.name} onChange={e => setInviteData({ ...inviteData, name: e.target.value })} placeholder="Jane Smith" />
+            <Input label="Email Address" type="email" value={inviteData.email} onChange={e => setInviteData({ ...inviteData, email: e.target.value })} placeholder="jane@company.com" />
+            <p className="text-xs text-slate-500">A user account will be created with auto-generated credentials that you can share with the user.</p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowInvite(false)}>Cancel</Button>
+              <Button onClick={handleInvite}><UserPlus className="w-4 h-4" />Create Account</Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

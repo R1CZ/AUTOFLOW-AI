@@ -23,7 +23,7 @@ function getDefaultPlans(): Plan[] {
   return [
     { id: 'plan_starter', name: 'Starter', monthlyPrice: 29, annualPrice: 290, maxUsers: 3, maxWorkflows: 10, maxExecutions: 1000, maxIntegrations: 5, maxWebhooks: 3, aiCredits: 500, features: ['Basic automations', '5 integrations', 'Email support', '1,000 executions/mo'], isActive: true, isTrial: false, trialDays: 0 },
     { id: 'plan_pro', name: 'Professional', monthlyPrice: 99, annualPrice: 990, maxUsers: 15, maxWorkflows: 50, maxExecutions: 10000, maxIntegrations: 20, maxWebhooks: 10, aiCredits: 5000, features: ['Advanced automations', '20 integrations', 'Priority support', '10,000 executions/mo', 'AI actions', 'Webhooks', 'Analytics'], isActive: true, isTrial: false, trialDays: 0 },
-    { id: 'plan_enterprise', name: 'Enterprise', monthlyPrice: 299, annualPrice: 2990, maxUsers: 100, maxWorkflows: 500, maxExecutions: 100000, maxIntegrations: 100, maxWebhooks: 50, aiCredits: 50000, features: ['Unlimited automations', '100 integrations', 'Dedicated support', '100,000 executions/mo', 'Advanced AI', 'Custom integrations', 'SLA', 'SSO', 'Audit logs'], isActive: true, isTrial: false, trialDays: 0 },
+    { id: 'plan_enterprise', name: 'Enterprise', monthlyPrice: 299, annualPrice: 2990, maxUsers: 999999, maxWorkflows: 999999, maxExecutions: 999999999, maxIntegrations: 999999, maxWebhooks: 999999, aiCredits: 999999999, features: ['Unlimited workflows', 'Unlimited AI tools & agents', 'Unlimited executions', 'Unlimited integrations', 'Unlimited webhooks', 'Unlimited AI credits', 'Dedicated support', 'Custom integrations', 'SLA guarantee', 'SSO', 'Audit logs', 'Priority processing', 'Advanced AI agents', 'Custom automation'], isActive: true, isTrial: false, trialDays: 0 },
     { id: 'plan_trial', name: 'Free Trial', monthlyPrice: 0, annualPrice: 0, maxUsers: 2, maxWorkflows: 3, maxExecutions: 100, maxIntegrations: 2, maxWebhooks: 1, aiCredits: 50, features: ['Trial access', '2 integrations', '100 executions', '14-day trial'], isActive: true, isTrial: true, trialDays: 14 },
   ];
 }
@@ -239,7 +239,7 @@ export function login(email: string, password: string): { user: User; token: str
   return { user, token };
 }
 
-export function register(data: { email: string; name: string; password: string; companyName: string; industry?: string; country: string; timezone: string; planId: string }): { user: User; company: Company; token: string } | null {
+export function register(data: { email: string; name: string; password: string; companyName: string; industry: string; country: string; timezone: string; planId: string }): { user: User; company: Company; token: string } | null {
   if (!db.settings.companySelfSignup) return null;
   if (db.users.find(u => u.email.toLowerCase() === data.email.toLowerCase())) return null;
   
@@ -247,9 +247,14 @@ export function register(data: { email: string; name: string; password: string; 
   const userId = 'usr_' + uuid().slice(0, 8);
   const now = new Date().toISOString();
   
+  // Determine company status based on plan
+  const isTrial = data.planId === 'plan_trial';
+  const companyStatus = isTrial ? 'trial' : 'active';
+  const subStatus = isTrial ? 'trial' : 'active';
+  
   const company: Company = {
     id: companyId, name: data.companyName, industry: data.industry, timezone: data.timezone, country: data.country,
-    adminId: userId, status: 'trial', planId: 'plan_trial', subscriptionStatus: 'trial',
+    adminId: userId, status: companyStatus, planId: data.planId, subscriptionStatus: subStatus,
     userCount: 1, workflowCount: 0, executionCount: 0, createdAt: now, updatedAt: now, lastActivity: now,
   };
   
@@ -258,17 +263,29 @@ export function register(data: { email: string; name: string; password: string; 
     status: 'active', lastLogin: now, createdAt: now, updatedAt: now,
   };
   
+  const plan = db.plans.find(p => p.id === data.planId);
+  const amount = plan ? (data.planId === 'plan_trial' ? 0 : plan.monthlyPrice) : 0;
+  
   const sub: Subscription = {
-    id: 'sub_' + uuid().slice(0, 8), companyId, planId: 'plan_trial', status: 'trial',
+    id: 'sub_' + uuid().slice(0, 8), companyId, planId: data.planId, status: subStatus,
     billingCycle: 'monthly', currentPeriodStart: now,
-    currentPeriodEnd: new Date(Date.now() + 14 * 86400000).toISOString(), amount: 0, createdAt: now,
+    currentPeriodEnd: new Date(Date.now() + (isTrial ? 14 : 30) * 86400000).toISOString(), amount, createdAt: now,
   };
   
   db.companies.push(company);
   db.users.push(user);
   db.subscriptions.push(sub);
   
-  db.auditLogs.push({ id: 'al_' + uuid().slice(0, 8), actorId: userId, actorName: data.name, action: 'company.created', resource: 'company', resourceId: companyId, createdAt: now });
+  // Create initial invoice if paid plan
+  if (!isTrial && amount > 0) {
+    db.invoices.push({
+      id: 'inv_' + uuid().slice(0, 8), companyId, subscriptionId: sub.id,
+      amount, currency: 'USD', status: 'paid', paidAt: now, createdAt: now,
+      items: [{ description: `${plan?.name} Plan - Monthly`, amount }],
+    });
+  }
+  
+  db.auditLogs.push({ id: 'al_' + uuid().slice(0, 8), actorId: userId, actorName: data.name, action: 'company.created', resource: 'company', resourceId: companyId, details: { industry: data.industry, plan: data.planId }, createdAt: now });
   
   const token = 'tok_' + uuid();
   db.sessions[token] = userId;
@@ -592,4 +609,156 @@ export function resetDatabase() {
   localStorage.removeItem(DB_KEY);
   db = seedDatabase();
   saveDB(db);
+}
+
+// Industry-specific templates
+export interface IndustryTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  industry: string;
+  nodes: number;
+  tags: string[];
+}
+
+export function getIndustryTemplates(industry: string): IndustryTemplate[] {
+  const allTemplates: IndustryTemplate[] = [
+    // IT Industry Templates
+    { id: 'tpl_it_1', name: 'IT Support Ticket Routing', description: 'Automatically classify and route IT support tickets to the appropriate team based on priority and category', category: 'IT Support', industry: 'it', nodes: 5, tags: ['ticketing', 'routing', 'support'] },
+    { id: 'tpl_it_2', name: 'System Monitoring & Alerts', description: 'Monitor system health metrics and trigger automated alerts when thresholds are exceeded', category: 'Monitoring', industry: 'it', nodes: 4, tags: ['monitoring', 'alerts', 'infrastructure'] },
+    { id: 'tpl_it_3', name: 'Employee Onboarding Automation', description: 'Automate IT onboarding process including account creation, access provisioning, and equipment setup', category: 'Onboarding', industry: 'it', nodes: 6, tags: ['onboarding', 'provisioning', 'automation'] },
+    { id: 'tpl_it_4', name: 'Incident Response Workflow', description: 'Automated incident detection, escalation, and resolution tracking for IT incidents', category: 'Incident Management', industry: 'it', nodes: 5, tags: ['incident', 'response', 'escalation'] },
+    { id: 'tpl_it_5', name: 'Server Maintenance Scheduler', description: 'Schedule and automate server maintenance tasks with notifications and rollback procedures', category: 'Maintenance', industry: 'it', nodes: 4, tags: ['maintenance', 'scheduling', 'servers'] },
+    { id: 'tpl_it_6', name: 'Security Threat Detection', description: 'AI-powered security monitoring and automated threat response workflows', category: 'Security', industry: 'it', nodes: 5, tags: ['security', 'threat', 'ai'] },
+    { id: 'tpl_it_7', name: 'Documentation Auto-Generator', description: 'Automatically generate and update technical documentation from code and system changes', category: 'Documentation', industry: 'it', nodes: 4, tags: ['documentation', 'automation', 'ai'] },
+    { id: 'tpl_it_8', name: 'DevOps Pipeline Automation', description: 'Automate CI/CD pipeline stages with testing, deployment, and rollback capabilities', category: 'DevOps', industry: 'it', nodes: 6, tags: ['devops', 'ci/cd', 'deployment'] },
+
+    // Healthcare Industry Templates
+    { id: 'tpl_health_1', name: 'Patient Appointment Scheduling', description: 'Automate patient appointment booking, reminders, and rescheduling workflows', category: 'Scheduling', industry: 'healthcare', nodes: 5, tags: ['appointments', 'scheduling', 'patients'] },
+    { id: 'tpl_health_2', name: 'Medical Records Management', description: 'Automate medical record creation, updates, and secure access management', category: 'Records', industry: 'healthcare', nodes: 4, tags: ['records', 'documentation', 'compliance'] },
+    { id: 'tpl_health_3', name: 'Patient Intake Automation', description: 'Streamline patient intake with digital forms, insurance verification, and data validation', category: 'Intake', industry: 'healthcare', nodes: 6, tags: ['intake', 'forms', 'verification'] },
+    { id: 'tpl_health_4', name: 'Billing & Insurance Claims', description: 'Automate medical billing, insurance claim submission, and payment processing', category: 'Billing', industry: 'healthcare', nodes: 5, tags: ['billing', 'insurance', 'claims'] },
+    { id: 'tpl_health_5', name: 'Medication Reminder System', description: 'Automated medication reminders and adherence tracking for patients', category: 'Medication', industry: 'healthcare', nodes: 4, tags: ['medication', 'reminders', 'adherence'] },
+    { id: 'tpl_health_6', name: 'Lab Results Notification', description: 'Automate lab result processing and secure patient notification workflows', category: 'Lab', industry: 'healthcare', nodes: 4, tags: ['lab', 'results', 'notification'] },
+    { id: 'tpl_health_7', name: 'Staff Scheduling Optimization', description: 'AI-powered staff scheduling based on patient volume and availability', category: 'Staffing', industry: 'healthcare', nodes: 5, tags: ['scheduling', 'staff', 'optimization'] },
+    { id: 'tpl_health_8', name: 'Compliance Monitoring', description: 'Automated healthcare compliance monitoring and audit trail generation', category: 'Compliance', industry: 'healthcare', nodes: 4, tags: ['compliance', 'audit', 'monitoring'] },
+
+    // Finance Industry Templates
+    { id: 'tpl_fin_1', name: 'Invoice Processing & Approval', description: 'Automate invoice receipt, data extraction, approval routing, and payment processing', category: 'Accounts Payable', industry: 'finance', nodes: 5, tags: ['invoices', 'approval', 'payment'] },
+    { id: 'tpl_fin_2', name: 'Expense Report Automation', description: 'Streamline expense report submission, approval, and reimbursement workflows', category: 'Expenses', industry: 'finance', nodes: 4, tags: ['expenses', 'reports', 'reimbursement'] },
+    { id: 'tpl_fin_3', name: 'Financial Report Generation', description: 'Automate financial report creation, data aggregation, and distribution', category: 'Reporting', industry: 'finance', nodes: 5, tags: ['reports', 'analytics', 'automation'] },
+    { id: 'tpl_fin_4', name: 'Fraud Detection System', description: 'AI-powered transaction monitoring and automated fraud alert workflows', category: 'Security', industry: 'finance', nodes: 5, tags: ['fraud', 'detection', 'ai'] },
+    { id: 'tpl_fin_5', name: 'Loan Application Processing', description: 'Automate loan application intake, credit checks, and approval workflows', category: 'Lending', industry: 'finance', nodes: 6, tags: ['loans', 'applications', 'credit'] },
+    { id: 'tpl_fin_6', name: 'Regulatory Compliance Monitoring', description: 'Automated compliance checking and regulatory reporting workflows', category: 'Compliance', industry: 'finance', nodes: 4, tags: ['compliance', 'regulatory', 'monitoring'] },
+
+    // Retail/E-commerce Templates
+    { id: 'tpl_ret_1', name: 'Order Fulfillment Automation', description: 'Automate order processing, inventory updates, and shipping notifications', category: 'Order Management', industry: 'retail', nodes: 5, tags: ['orders', 'fulfillment', 'shipping'] },
+    { id: 'tpl_ret_2', name: 'Customer Support Ticket Routing', description: 'Intelligently route customer support requests based on issue type and priority', category: 'Support', industry: 'retail', nodes: 4, tags: ['support', 'tickets', 'routing'] },
+    { id: 'tpl_ret_3', name: 'Inventory Management Alerts', description: 'Monitor inventory levels and automate reorder notifications and alerts', category: 'Inventory', industry: 'retail', nodes: 4, tags: ['inventory', 'alerts', 'reorder'] },
+    { id: 'tpl_ret_4', name: 'Marketing Campaign Automation', description: 'Automate marketing campaign execution, tracking, and performance reporting', category: 'Marketing', industry: 'retail', nodes: 5, tags: ['marketing', 'campaigns', 'automation'] },
+    { id: 'tpl_ret_5', name: 'Return & Refund Processing', description: 'Streamline return requests, approval workflows, and refund processing', category: 'Returns', industry: 'retail', nodes: 5, tags: ['returns', 'refunds', 'processing'] },
+    { id: 'tpl_ret_6', name: 'Customer Feedback Collection', description: 'Automate post-purchase feedback collection and sentiment analysis', category: 'Feedback', industry: 'retail', nodes: 4, tags: ['feedback', 'reviews', 'sentiment'] },
+
+    // Manufacturing Templates
+    { id: 'tpl_mfg_1', name: 'Production Line Monitoring', description: 'Monitor production metrics and automate quality control alerts', category: 'Production', industry: 'manufacturing', nodes: 5, tags: ['production', 'monitoring', 'quality'] },
+    { id: 'tpl_mfg_2', name: 'Supply Chain Management', description: 'Automate supplier communications, order tracking, and delivery scheduling', category: 'Supply Chain', industry: 'manufacturing', nodes: 6, tags: ['supply', 'chain', 'logistics'] },
+    { id: 'tpl_mfg_3', name: 'Equipment Maintenance Scheduling', description: 'Predictive maintenance scheduling and automated work order generation', category: 'Maintenance', industry: 'manufacturing', nodes: 4, tags: ['maintenance', 'equipment', 'scheduling'] },
+    { id: 'tpl_mfg_4', name: 'Quality Control Automation', description: 'Automated quality inspection workflows and defect tracking', category: 'Quality', industry: 'manufacturing', nodes: 5, tags: ['quality', 'inspection', 'defects'] },
+    { id: 'tpl_mfg_5', name: 'Inventory Reorder System', description: 'Automated inventory monitoring and purchase order generation', category: 'Inventory', industry: 'manufacturing', nodes: 4, tags: ['inventory', 'reorder', 'automation'] },
+
+    // Education Templates
+    { id: 'tpl_edu_1', name: 'Student Enrollment Automation', description: 'Streamline student enrollment, document verification, and onboarding', category: 'Enrollment', industry: 'education', nodes: 5, tags: ['enrollment', 'students', 'onboarding'] },
+    { id: 'tpl_edu_2', name: 'Course Scheduling System', description: 'Automate course scheduling, room allocation, and instructor assignment', category: 'Scheduling', industry: 'education', nodes: 4, tags: ['courses', 'scheduling', 'rooms'] },
+    { id: 'tpl_edu_3', name: 'Grade Processing & Reporting', description: 'Automate grade entry, calculation, and report card generation', category: 'Grades', industry: 'education', nodes: 4, tags: ['grades', 'reports', 'automation'] },
+    { id: 'tpl_edu_4', name: 'Attendance Tracking', description: 'Automated attendance tracking and parent notification workflows', category: 'Attendance', industry: 'education', nodes: 4, tags: ['attendance', 'tracking', 'notification'] },
+    { id: 'tpl_edu_5', name: 'Financial Aid Processing', description: 'Automate financial aid applications, verification, and disbursement', category: 'Financial Aid', industry: 'education', nodes: 5, tags: ['financial', 'aid', 'processing'] },
+
+    // Real Estate Templates
+    { id: 'tpl_re_1', name: 'Property Listing Automation', description: 'Automate property listing creation, updates, and multi-platform syndication', category: 'Listings', industry: 'real_estate', nodes: 4, tags: ['listings', 'properties', 'syndication'] },
+    { id: 'tpl_re_2', name: 'Lead Qualification Workflow', description: 'AI-powered lead qualification and automated follow-up sequences', category: 'Leads', industry: 'real_estate', nodes: 5, tags: ['leads', 'qualification', 'follow-up'] },
+    { id: 'tpl_re_3', name: 'Document Management', description: 'Automate document collection, verification, and secure storage', category: 'Documents', industry: 'real_estate', nodes: 4, tags: ['documents', 'verification', 'storage'] },
+    { id: 'tpl_re_4', name: 'Transaction Coordination', description: 'Streamline real estate transactions with automated milestone tracking', category: 'Transactions', industry: 'real_estate', nodes: 6, tags: ['transactions', 'coordination', 'milestones'] },
+
+    // Legal Templates
+    { id: 'tpl_legal_1', name: 'Case Management Automation', description: 'Automate case intake, document management, and deadline tracking', category: 'Case Management', industry: 'legal', nodes: 5, tags: ['cases', 'documents', 'deadlines'] },
+    { id: 'tpl_legal_2', name: 'Contract Review Workflow', description: 'AI-assisted contract review and approval routing', category: 'Contracts', industry: 'legal', nodes: 4, tags: ['contracts', 'review', 'approval'] },
+    { id: 'tpl_legal_3', name: 'Client Onboarding', description: 'Automate client intake, conflict checks, and engagement letter generation', category: 'Onboarding', industry: 'legal', nodes: 5, tags: ['clients', 'onboarding', 'intake'] },
+    { id: 'tpl_legal_4', name: 'Billing & Time Tracking', description: 'Automated time tracking, invoice generation, and payment processing', category: 'Billing', industry: 'legal', nodes: 4, tags: ['billing', 'time', 'invoices'] },
+
+    // General Templates (available to all industries)
+    { id: 'tpl_gen_1', name: 'Customer Onboarding', description: 'Automate new customer setup with AI classification and welcome sequences', category: 'CRM', industry: 'general', nodes: 5, tags: ['customers', 'onboarding', 'crm'] },
+    { id: 'tpl_gen_2', name: 'Email Campaign Automation', description: 'Automate email campaign creation, scheduling, and performance tracking', category: 'Marketing', industry: 'general', nodes: 4, tags: ['email', 'campaigns', 'marketing'] },
+    { id: 'tpl_gen_3', name: 'Data Sync Pipeline', description: 'Sync data between systems with transformation and validation', category: 'Integration', industry: 'general', nodes: 4, tags: ['data', 'sync', 'integration'] },
+    { id: 'tpl_gen_4', name: 'Social Media Monitor', description: 'Monitor social media mentions and create automated alerts', category: 'Social', industry: 'general', nodes: 3, tags: ['social', 'monitoring', 'alerts'] },
+  ];
+
+  // Return industry-specific templates plus general templates
+  if (industry === 'general' || !industry) {
+    return allTemplates.filter(t => t.industry === 'general');
+  }
+  return allTemplates.filter(t => t.industry === industry || t.industry === 'general');
+}
+
+export const INDUSTRIES = [
+  { value: 'it', label: 'Information Technology', icon: '💻' },
+  { value: 'healthcare', label: 'Healthcare & Hospital', icon: '🏥' },
+  { value: 'finance', label: 'Finance & Banking', icon: '🏦' },
+  { value: 'retail', label: 'Retail & E-commerce', icon: '🛍️' },
+  { value: 'manufacturing', label: 'Manufacturing', icon: '🏭' },
+  { value: 'education', label: 'Education', icon: '🎓' },
+  { value: 'real_estate', label: 'Real Estate', icon: '🏢' },
+  { value: 'legal', label: 'Legal Services', icon: '⚖️' },
+  { value: 'marketing', label: 'Marketing & Advertising', icon: '📢' },
+  { value: 'logistics', label: 'Logistics & Transportation', icon: '🚚' },
+  { value: 'hospitality', label: 'Hospitality & Tourism', icon: '🏨' },
+  { value: 'construction', label: 'Construction', icon: '🏗️' },
+  { value: 'energy', label: 'Energy & Utilities', icon: '⚡' },
+  { value: 'telecommunications', label: 'Telecommunications', icon: '📡' },
+  { value: 'media', label: 'Media & Entertainment', icon: '🎬' },
+  { value: 'nonprofit', label: 'Non-Profit', icon: '🤝' },
+  { value: 'government', label: 'Government', icon: '🏛️' },
+  { value: 'other', label: 'Other', icon: '🏢' },
+];
+
+// Create user account for existing company (admin creates user directly)
+export function createUserAccount(data: { companyId: string; email: string; name: string; role?: 'company_admin' | 'user' }): { user: User; credentials: { email: string; tempPassword: string } } | null {
+  const company = db.companies.find(c => c.id === data.companyId);
+  if (!company) return null;
+  
+  // Check if email already exists
+  if (db.users.find(u => u.email.toLowerCase() === data.email.toLowerCase())) return null;
+  
+  // Check user limit based on plan
+  const plan = db.plans.find(p => p.id === company.planId);
+  const currentUsers = db.users.filter(u => u.companyId === data.companyId).length;
+  if (plan && currentUsers >= plan.maxUsers) return null;
+  
+  const now = new Date().toISOString();
+  const userId = 'usr_' + uuid().slice(0, 8);
+  const tempPassword = 'AutoFlow_' + Math.random().toString(36).slice(-8);
+  
+  const user: User = {
+    id: userId, email: data.email, name: data.name, role: data.role || 'user',
+    companyId: data.companyId, status: 'active', createdAt: now, updatedAt: now,
+  };
+  
+  db.users.push(user);
+  company.userCount = db.users.filter(u => u.companyId === data.companyId).length;
+  
+  db.auditLogs.push({ 
+    id: 'al_' + uuid().slice(0, 8), 
+    actorId: 'system', 
+    actorName: 'System', 
+    action: 'user.created', 
+    resource: 'user', 
+    resourceId: userId, 
+    companyId: data.companyId,
+    details: { email: data.email, role: data.role },
+    createdAt: now 
+  });
+  
+  saveDB(db);
+  
+  return { user, credentials: { email: data.email, tempPassword } };
 }

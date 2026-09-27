@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useAuthStore } from '../stores';
 import * as db from '../lib/database';
 import { Card, Badge, Button, Table, SearchBar, Modal, Input, Select, StatCard, Tabs, Toast, EmptyState, ProgressBar } from '../components/ui';
-import { Zap, Workflow, Activity, Plus, Play, Pause, Trash2, Copy, Settings, Webhook, Clock, CheckCircle, XCircle, AlertCircle, GitBranch, Brain, Bell, Shield, RefreshCw } from 'lucide-react';
+import { Zap, Workflow, Activity, Plus, Play, Pause, Trash2, Copy, Settings, Webhook, Clock, CheckCircle, XCircle, AlertCircle, GitBranch, Brain, Bell, Shield, RefreshCw, Layout } from 'lucide-react';
 import type { WorkflowNode, WorkflowConnection } from '../types';
 
 // User Dashboard
@@ -693,19 +693,20 @@ export function UserWebhooksPage() {
 export function UserTemplatesPage() {
   const { user } = useAuthStore();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState('all');
 
-  const templates = [
-    { id: 'tpl_1', name: 'Customer Onboarding', description: 'Automate new customer setup with AI classification', category: 'CRM', nodes: 5 },
-    { id: 'tpl_2', name: 'Invoice Processing', description: 'Extract data from invoices using AI and save to accounting', category: 'Finance', nodes: 4 },
-    { id: 'tpl_3', name: 'Lead Qualification', description: 'Score and route incoming leads automatically', category: 'Sales', nodes: 5 },
-    { id: 'tpl_4', name: 'Support Ticket Routing', description: 'Classify and route support tickets to the right team', category: 'Support', nodes: 4 },
-    { id: 'tpl_5', name: 'Social Media Monitor', description: 'Monitor mentions and create alerts', category: 'Marketing', nodes: 3 },
-    { id: 'tpl_6', name: 'Data Sync Pipeline', description: 'Sync data between two systems with transformation', category: 'Integration', nodes: 4 },
-  ];
+  if (!user?.companyId) return null;
+  const company = db.getCompanyById(user.companyId);
+  const industry = company?.industry || 'general';
+  const industryInfo = db.INDUSTRIES.find(i => i.value === industry);
+  
+  // Get industry-specific templates
+  const allTemplates = db.getIndustryTemplates(industry);
+  const categories = ['all', ...Array.from(new Set(allTemplates.map(t => t.category)))];
+  const templates = categoryFilter === 'all' ? allTemplates : allTemplates.filter(t => t.category === categoryFilter);
 
-  const handleUseTemplate = (tpl: typeof templates[0]) => {
-    if (!user?.companyId) return;
-    db.createWorkflow({ name: tpl.name, description: tpl.description, companyId: user.companyId, createdById: user.id });
+  const handleUseTemplate = (tpl: typeof allTemplates[0]) => {
+    db.createWorkflow({ name: tpl.name, description: tpl.description, companyId: user.companyId!, createdById: user.id });
     setToast({ message: `Workflow created from "${tpl.name}" template.`, type: 'success' });
   };
 
@@ -714,7 +715,39 @@ export function UserTemplatesPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <div>
         <h1 className="text-2xl font-bold text-white">Templates</h1>
-        <p className="text-sm text-slate-400 mt-1">Start from pre-built workflow templates</p>
+        <p className="text-sm text-slate-400 mt-1">
+          Industry-specific workflow templates customized for your business
+        </p>
+      </div>
+
+      {/* Industry Banner */}
+      <Card className="p-4 bg-gradient-to-r from-cyan-500/5 to-blue-500/5 border-cyan-500/20">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{industryInfo?.icon || '🏢'}</span>
+          <div>
+            <p className="text-sm font-medium text-white">{industryInfo?.label || 'General'} Templates</p>
+            <p className="text-xs text-slate-400">
+              These templates are customized for your industry. They include AI-powered workflows relevant to {industryInfo?.label?.toLowerCase() || 'your business'} operations.
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Category Filter */}
+      <div className="flex gap-2 flex-wrap">
+        {categories.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setCategoryFilter(cat)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              categoryFilter === cat 
+                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
+                : 'bg-slate-800/50 text-slate-400 border border-slate-700 hover:border-slate-600'
+            }`}
+          >
+            {cat === 'all' ? 'All Templates' : cat}
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -725,11 +758,20 @@ export function UserTemplatesPage() {
               <span className="text-xs text-slate-500">{tpl.nodes} nodes</span>
             </div>
             <h3 className="text-sm font-medium text-white mb-1">{tpl.name}</h3>
-            <p className="text-xs text-slate-400 mb-4">{tpl.description}</p>
+            <p className="text-xs text-slate-400 mb-3">{tpl.description}</p>
+            <div className="flex flex-wrap gap-1 mb-3">
+              {tpl.tags.slice(0, 3).map((tag, i) => (
+                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">#{tag}</span>
+              ))}
+            </div>
             <Button size="sm" variant="outline" className="w-full" onClick={() => handleUseTemplate(tpl)}><Copy className="w-3 h-3" />Use Template</Button>
           </Card>
         ))}
       </div>
+
+      {templates.length === 0 && (
+        <EmptyState icon={<Layout className="w-8 h-8" />} title="No templates" description="No templates available for this category." />
+      )}
     </div>
   );
 }
