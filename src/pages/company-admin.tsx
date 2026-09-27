@@ -210,8 +210,8 @@ export function AdminDashboard() {
 export function AdminUsersPage() {
   const { user } = useAuthStore();
   const [search, setSearch] = useState('');
-  const [showInvite, setShowInvite] = useState(false);
-  const [inviteData, setInviteData] = useState({ email: '', name: '' });
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [userData, setUserData] = useState({ email: '', name: '' });
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   if (!user?.companyId) return null;
@@ -220,16 +220,16 @@ export function AdminUsersPage() {
 
   const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string } | null>(null);
 
-  const handleInvite = () => {
-    if (!inviteData.email || !inviteData.name) return;
-    const result = db.createUserAccount({ email: inviteData.email, name: inviteData.name, companyId: user.companyId! });
+  const handleCreateUser = () => {
+    if (!userData.email || !userData.name) return;
+    const result = db.createUserAccount({ email: userData.email, name: userData.name, companyId: user.companyId! });
     if (!result) {
       setToast({ message: 'Failed to create user. Email may already exist or user limit reached.', type: 'error' });
       return;
     }
     db.addAuditLog({ actorId: user.id, actorName: user.name, action: 'user.created', resource: 'user', resourceId: result.user.id, companyId: user.companyId! });
     setCreatedCredentials({ email: result.credentials.email, password: result.credentials.tempPassword });
-    setInviteData({ email: '', name: '' });
+    setUserData({ email: '', name: '' });
     setToast({ message: 'User account created successfully.', type: 'success' });
   };
 
@@ -255,7 +255,7 @@ export function AdminUsersPage() {
           <h1 className="text-2xl font-bold text-white">Team</h1>
           <p className="text-sm text-slate-400 mt-1">Manage your company's team members</p>
         </div>
-        <Button onClick={() => setShowInvite(true)}><UserPlus className="w-4 h-4" />Invite User</Button>
+        <Button onClick={() => setShowCreateUser(true)}><UserPlus className="w-4 h-4" />Create User Account</Button>
       </div>
 
       <Card className="p-4">
@@ -277,7 +277,7 @@ export function AdminUsersPage() {
                 {u.id !== user.id && (
                   <Dropdown trigger={<button className="p-1.5 rounded hover:bg-slate-700"><MoreVertical className="w-4 h-4 text-slate-400" /></button>} items={[
                     { label: u.status === 'active' ? 'Deactivate' : 'Activate', onClick: () => handleToggleStatus(u.id, u.status) },
-                    { label: 'Resend Invitation', onClick: () => setToast({ message: 'Invitation resent.', type: 'success' }) },
+                    { label: 'Reset Password', onClick: () => setToast({ message: 'Password reset link sent.', type: 'success' }) },
                     { label: 'Remove', onClick: () => handleDelete(u.id), danger: true },
                   ]} />
                 )}
@@ -287,7 +287,7 @@ export function AdminUsersPage() {
         </Table>
       </Card>
 
-      <Modal open={showInvite} onClose={() => { setShowInvite(false); setCreatedCredentials(null); }} title={createdCredentials ? 'Account Created' : 'Create User Account'}>
+      <Modal open={showCreateUser} onClose={() => { setShowCreateUser(false); setCreatedCredentials(null); }} title={createdCredentials ? 'Account Created' : 'Create User Account'}>
         {createdCredentials ? (
           <div className="space-y-4">
             <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
@@ -314,16 +314,16 @@ export function AdminUsersPage() {
               </div>
             </div>
             <p className="text-xs text-amber-400">⚠️ Please share these credentials securely. The user should change their password after first login.</p>
-            <Button onClick={() => { setShowInvite(false); setCreatedCredentials(null); }} className="w-full">Done</Button>
+            <Button onClick={() => { setShowCreateUser(false); setCreatedCredentials(null); }} className="w-full">Done</Button>
           </div>
         ) : (
           <div className="space-y-4">
-            <Input label="Full Name" value={inviteData.name} onChange={e => setInviteData({ ...inviteData, name: e.target.value })} placeholder="Jane Smith" />
-            <Input label="Email Address" type="email" value={inviteData.email} onChange={e => setInviteData({ ...inviteData, email: e.target.value })} placeholder="jane@company.com" />
+            <Input label="Full Name" value={userData.name} onChange={e => setUserData({ ...userData, name: e.target.value })} placeholder="Jane Smith" />
+            <Input label="Email Address" type="email" value={userData.email} onChange={e => setUserData({ ...userData, email: e.target.value })} placeholder="jane@company.com" />
             <p className="text-xs text-slate-500">A user account will be created with auto-generated credentials that you can share with the user.</p>
             <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setShowInvite(false)}>Cancel</Button>
-              <Button onClick={handleInvite}><UserPlus className="w-4 h-4" />Create Account</Button>
+              <Button variant="outline" onClick={() => setShowCreateUser(false)}>Cancel</Button>
+              <Button onClick={handleCreateUser}><UserPlus className="w-4 h-4" />Create Account</Button>
             </div>
           </div>
         )}
