@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import * as db from '../lib/database';
 import { Card, Badge, Button, Table, SearchBar, Pagination, StatCard, Modal, Input, Select, Tabs, Toast, ProgressBar, CopyButton } from '../components/ui';
 import { Building2, Users, Workflow, Zap, DollarSign, Activity, TrendingUp, CheckCircle, XCircle, Shield, CreditCard, Settings as SettingsIcon, Ban, Check, Download } from 'lucide-react';
@@ -31,6 +32,112 @@ export function PlatformDashboard() {
         <StatCard label="Net Revenue" value={`$${stats.netRevenue.toLocaleString()}`} icon={<TrendingUp className="w-5 h-5" />} variant="success" />
         <StatCard label="Success Rate" value={`${stats.totalExecutions > 0 ? Math.round((stats.successfulExecutions / stats.totalExecutions) * 100) : 0}%`} icon={<CheckCircle className="w-5 h-5" />} variant="success" />
         <StatCard label="Failed" value={stats.failedExecutions} icon={<XCircle className="w-5 h-5" />} variant="error" />
+      </div>
+
+      {/* Analytics Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Execution Trend */}
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-white mb-4">Execution Trend (Last 7 Days)</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={useMemo(() => {
+              const days = [];
+              for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                const dayExecs = db.getExecutions().filter(e => e.startedAt.startsWith(dateStr));
+                days.push({
+                  date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                  successful: dayExecs.filter(e => e.status === 'success').length,
+                  failed: dayExecs.filter(e => e.status === 'failed').length,
+                });
+              }
+              return days;
+            }, [])}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <XAxis dataKey="date" stroke="#64748b" style={{ fontSize: '12px' }} />
+              <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
+              <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }} />
+              <Area type="monotone" dataKey="successful" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} />
+              <Area type="monotone" dataKey="failed" stackId="1" stroke="#ef4444" fill="#ef4444" fillOpacity={0.3} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Revenue Trend */}
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-white mb-4">Revenue Trend (Last 6 Months)</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={useMemo(() => {
+              const months = [];
+              for (let i = 5; i >= 0; i--) {
+                const date = new Date();
+                date.setMonth(date.getMonth() - i);
+                const monthStr = date.toISOString().slice(0, 7);
+                const monthInvoices = db.getCompanies().flatMap(c => db.getInvoices(c.id)).filter(inv => inv.createdAt.startsWith(monthStr) && inv.status === 'paid');
+                const revenue = monthInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+                months.push({
+                  month: date.toLocaleDateString('en-US', { month: 'short' }),
+                  revenue,
+                });
+              }
+              return months;
+            }, [])}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <XAxis dataKey="month" stroke="#64748b" style={{ fontSize: '12px' }} />
+              <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
+              <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }} formatter={(value: number) => [`$${value}`, 'Revenue']} />
+              <Line type="monotone" dataKey="revenue" stroke="#06b6d4" strokeWidth={2} dot={{ fill: '#06b6d4', r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Company Distribution */}
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-white mb-4">Company Status Distribution</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <PieChart>
+              <Pie data={[
+                { name: 'Active', value: stats.activeCompanies, fill: '#10b981' },
+                { name: 'Trial', value: stats.trialCompanies, fill: '#06b6d4' },
+                { name: 'Suspended', value: stats.suspendedCompanies, fill: '#ef4444' },
+              ]} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">
+                {[
+                  { name: 'Active', value: stats.activeCompanies, fill: '#10b981' },
+                  { name: 'Trial', value: stats.trialCompanies, fill: '#06b6d4' },
+                  { name: 'Suspended', value: stats.suspendedCompanies, fill: '#ef4444' },
+                ].map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Top Companies by Executions */}
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-white mb-4">Top Companies by Executions</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={useMemo(() => {
+              return db.getCompanies()
+                .sort((a, b) => b.executionCount - a.executionCount)
+                .slice(0, 5)
+                .map(c => ({
+                  name: c.name.length > 15 ? c.name.substring(0, 15) + '...' : c.name,
+                  executions: c.executionCount,
+                }));
+            }, [])}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <XAxis dataKey="name" stroke="#64748b" style={{ fontSize: '11px' }} />
+              <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
+              <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }} />
+              <Bar dataKey="executions" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
       </div>
 
       {/* Company Status */}

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useAuthStore } from '../stores';
 import * as db from '../lib/database';
 import { Card, Badge, Button, Table, SearchBar, Modal, Input, Select, StatCard, Tabs, Toast, ProgressBar, EmptyState, Dropdown } from '../components/ui';
@@ -50,6 +51,117 @@ export function AdminDashboard() {
           </div>
         </Card>
       )}
+
+      {/* Analytics Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Execution Trend */}
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-white mb-4">Execution Trend (Last 7 Days)</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={useMemo(() => {
+              const days = [];
+              for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                const dayExecs = executions.filter(e => e.startedAt.startsWith(dateStr));
+                days.push({
+                  date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                  successful: dayExecs.filter(e => e.status === 'success').length,
+                  failed: dayExecs.filter(e => e.status === 'failed').length,
+                });
+              }
+              return days;
+            }, [executions])}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <XAxis dataKey="date" stroke="#64748b" style={{ fontSize: '12px' }} />
+              <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
+              <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }} />
+              <Area type="monotone" dataKey="successful" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} />
+              <Area type="monotone" dataKey="failed" stackId="1" stroke="#ef4444" fill="#ef4444" fillOpacity={0.3} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Workflow Performance */}
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-white mb-4">Workflow Performance</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={useMemo(() => {
+              return workflows
+                .sort((a, b) => b.executionCount - a.executionCount)
+                .slice(0, 6)
+                .map(w => ({
+                  name: w.name.length > 12 ? w.name.substring(0, 12) + '...' : w.name,
+                  success: w.successCount,
+                  failed: w.failCount,
+                }));
+            }, [workflows])}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <XAxis dataKey="name" stroke="#64748b" style={{ fontSize: '11px' }} />
+              <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
+              <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }} />
+              <Legend />
+              <Bar dataKey="success" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="failed" fill="#ef4444" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Integration Status */}
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-white mb-4">Integration Status</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <PieChart>
+              <Pie data={[
+                { name: 'Connected', value: integrations.filter(i => i.status === 'connected').length, fill: '#10b981' },
+                { name: 'Disconnected', value: integrations.filter(i => i.status === 'disconnected').length, fill: '#64748b' },
+                { name: 'Error', value: integrations.filter(i => i.status === 'error').length, fill: '#ef4444' },
+              ]} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">
+                {[
+                  { name: 'Connected', value: integrations.filter(i => i.status === 'connected').length, fill: '#10b981' },
+                  { name: 'Disconnected', value: integrations.filter(i => i.status === 'disconnected').length, fill: '#64748b' },
+                  { name: 'Error', value: integrations.filter(i => i.status === 'error').length, fill: '#ef4444' },
+                ].map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Execution Duration Trend */}
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-white mb-4">Average Execution Duration</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={useMemo(() => {
+              const days = [];
+              for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                const dayExecs = executions.filter(e => e.startedAt.startsWith(dateStr) && e.duration);
+                const avgDuration = dayExecs.length > 0 
+                  ? dayExecs.reduce((sum, e) => sum + (e.duration || 0), 0) / dayExecs.length / 1000
+                  : 0;
+                days.push({
+                  date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                  duration: Math.round(avgDuration * 10) / 10,
+                });
+              }
+              return days;
+            }, [executions])}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <XAxis dataKey="date" stroke="#64748b" style={{ fontSize: '12px' }} />
+              <YAxis stroke="#64748b" style={{ fontSize: '12px' }} unit="s" />
+              <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }} formatter={(value: number) => [`${value}s`, 'Avg Duration']} />
+              <Line type="monotone" dataKey="duration" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6', r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="p-4">
