@@ -164,6 +164,12 @@ export function WorkflowBuilderPage() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [dragNode, setDragNode] = useState<string | null>(null);
   const [connecting, setConnecting] = useState<{ from: string; x: number; y: number } | null>(null);
+  
+  // Pan and zoom state
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
   if (!user?.companyId) return null;
   const workflows = db.getWorkflows(user.companyId);
@@ -213,6 +219,12 @@ export function WorkflowBuilderPage() {
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     if (connecting) {
       setConnecting(null);
+      return;
+    }
+    // Start panning if clicking on empty canvas (not on a node)
+    if (e.target === canvasRef.current || (e.target as HTMLElement).tagName === 'svg' || (e.target as HTMLElement).tagName === 'rect') {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     }
   };
 
@@ -222,7 +234,7 @@ export function WorkflowBuilderPage() {
       // Start connection
       const rect = canvasRef.current?.getBoundingClientRect();
       if (rect) {
-        setConnecting({ from: nodeId, x: e.clientX - rect.left, y: e.clientY - rect.top });
+        setConnecting({ from: nodeId, x: (e.clientX - rect.left - pan.x) / zoom, y: (e.clientY - rect.top - pan.y) / zoom });
       }
     } else {
       setDragNode(nodeId);
@@ -231,21 +243,28 @@ export function WorkflowBuilderPage() {
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent) => {
+    if (isPanning) {
+      setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+      return;
+    }
     if (dragNode) {
       const rect = canvasRef.current?.getBoundingClientRect();
       if (rect) {
-        setNodes(nodes.map(n => n.id === dragNode ? { ...n, position: { x: e.clientX - rect.left - 60, y: e.clientY - rect.top - 25 } } : n));
+        const x = (e.clientX - rect.left - pan.x) / zoom - 60;
+        const y = (e.clientY - rect.top - pan.y) / zoom - 25;
+        setNodes(nodes.map(n => n.id === dragNode ? { ...n, position: { x, y } } : n));
       }
     }
     if (connecting) {
       const rect = canvasRef.current?.getBoundingClientRect();
       if (rect) {
-        setConnecting({ ...connecting, x: e.clientX - rect.left, y: e.clientY - rect.top });
+        setConnecting({ ...connecting, x: (e.clientX - rect.left - pan.x) / zoom, y: (e.clientY - rect.top - pan.y) / zoom });
       }
     }
   };
 
   const handleCanvasMouseUp = (e: React.MouseEvent) => {
+    setIsPanning(false);
     if (dragNode) {
       setDragNode(null);
     }
@@ -253,8 +272,8 @@ export function WorkflowBuilderPage() {
       // Check if dropped on a node
       const rect = canvasRef.current?.getBoundingClientRect();
       if (rect) {
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const x = (e.clientX - rect.left - pan.x) / zoom;
+        const y = (e.clientY - rect.top - pan.y) / zoom;
         const targetNode = nodes.find(n => n.id !== connecting.from && Math.abs(n.position.x + 60 - x) < 60 && Math.abs(n.position.y + 25 - y) < 25);
         if (targetNode) {
           const newConn: WorkflowConnection = { id: 'conn_' + Date.now(), sourceId: connecting.from, targetId: targetNode.id };
@@ -266,6 +285,16 @@ export function WorkflowBuilderPage() {
       setConnecting(null);
     }
   };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(prev => Math.max(0.25, Math.min(3, prev + delta)));
+  };
+
+  const handleZoomIn = () => setZoom(prev => Math.min(3, prev + 0.2));
+  const handleZoomOut = () => setZoom(prev => Math.max(0.25, prev - 0.2));
+  const handleResetView = () => { setPan({ x: 0, y: 0 }); setZoom(1); };
 
   const handleSave = () => {
     if (selectedWorkflow && currentWf) {
@@ -331,7 +360,17 @@ export function WorkflowBuilderPage() {
 
       {/* Canvas */}
       <div className="flex-1 flex gap-4 min-h-0">
-        <div ref={canvasRef} className="flex-1 relative bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden" onMouseDown={handleCanvasMouseDown} onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp}>
+        <div ref={canvasRef} className="flex-1 relative bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden cursor-grab active:cursor-grabbing" onMouseDown={handleCanvasMouseDown} onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp} onWheel={handleWheel} style={{ cursor: isPanning ? 'grabbing' : 'grab' }}>
+          {/* Zoom Controls */}
+          <div className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-slate-900/90 border border-slate-700 rounded-lg p-1">
+            <button onClick={handleZoomOut} className="w-7 h-7 rounded hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white text-sm" title="Zoom Out">−</button>
+            <span className="text-xs text-slate-400 px-2 min-w-[3rem] text-center">{Math.round(zoom * 100)}%</span>
+            <button onClick={handleZoomIn} className="w-7 h-7 rounded hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white text-sm" title="Zoom In">+</button>
+            <div className="w-px h-5 bg-slate-700 mx-1" />
+            <button onClick={handleResetView} className="w-7 h-7 rounded hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white text-xs" title="Reset View">⟲</button>
+          </div>
+          {/* Transform wrapper */}
+          <div style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
           {!selectedWorkflow ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
@@ -415,11 +454,12 @@ export function WorkflowBuilderPage() {
               {/* Help text */}
               {nodes.length > 0 && (
                 <div className="absolute bottom-3 left-3 text-[10px] text-slate-600">
-                  Drag nodes to move • Shift+drag from node to connect • Click to select
+                  Drag nodes to move • Shift+drag from node to connect • Click canvas to pan • Scroll to zoom
                 </div>
               )}
             </>
           )}
+          </div>
         </div>
 
         {/* Node Config Panel */}
@@ -706,8 +746,15 @@ export function UserTemplatesPage() {
   const templates = categoryFilter === 'all' ? allTemplates : allTemplates.filter(t => t.category === categoryFilter);
 
   const handleUseTemplate = (tpl: typeof allTemplates[0]) => {
-    db.createWorkflow({ name: tpl.name, description: tpl.description, companyId: user.companyId!, createdById: user.id });
-    setToast({ message: `Workflow created from "${tpl.name}" template.`, type: 'success' });
+    db.createWorkflow({ 
+      name: tpl.name, 
+      description: tpl.description, 
+      companyId: user.companyId!, 
+      createdById: user.id,
+      nodes: tpl.templateNodes,
+      connections: tpl.templateConnections
+    });
+    setToast({ message: `Workflow created from "${tpl.name}" template with ${tpl.templateNodes.length} pre-built nodes.`, type: 'success' });
   };
 
   return (

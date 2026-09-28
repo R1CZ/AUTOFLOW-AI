@@ -620,77 +620,264 @@ export interface IndustryTemplate {
   industry: string;
   nodes: number;
   tags: string[];
+  templateNodes: WorkflowNode[];
+  templateConnections: WorkflowConnection[];
+}
+
+// Helper function to create template nodes
+function createTemplateNode(id: string, type: WorkflowNode['type'], label: string, config: Record<string, any>, x: number, y: number): WorkflowNode {
+  return { id, type, label, config, position: { x, y } };
+}
+
+// Helper function to create template connections
+function createTemplateConnection(id: string, sourceId: string, targetId: string, label?: string): WorkflowConnection {
+  return { id, sourceId, targetId, label };
+}
+
+// Helper to generate standard workflow patterns
+function generateStandardWorkflow(pattern: string): { templateNodes: WorkflowNode[], templateConnections: WorkflowConnection[] } {
+  const patterns: Record<string, { templateNodes: WorkflowNode[], templateConnections: WorkflowConnection[] }> = {
+    'trigger-ai-condition-action': {
+      templateNodes: [
+        createTemplateNode('n1', 'trigger', 'Trigger Event', { source: 'webhook' }, 100, 200),
+        createTemplateNode('n2', 'ai_action', 'AI Processing', { model: 'gpt-4', prompt: 'Process input data' }, 300, 200),
+        createTemplateNode('n3', 'condition', 'Check Condition', { field: 'status', operator: 'equals', value: 'approved' }, 500, 200),
+        createTemplateNode('n4', 'action', 'Execute Action', { template: 'standard_action' }, 700, 200),
+      ],
+      templateConnections: [
+        createTemplateConnection('c1', 'n1', 'n2'),
+        createTemplateConnection('c2', 'n2', 'n3'),
+        createTemplateConnection('c3', 'n3', 'n4', 'Yes'),
+      ]
+    },
+    'trigger-transform-integration': {
+      templateNodes: [
+        createTemplateNode('n1', 'trigger', 'Data Received', { source: 'webhook' }, 100, 200),
+        createTemplateNode('n2', 'transform', 'Transform Data', { mapping: { format: 'json' } }, 300, 200),
+        createTemplateNode('n3', 'integration', 'Send to System', { provider: 'api', action: 'post_data' }, 500, 200),
+      ],
+      templateConnections: [
+        createTemplateConnection('c1', 'n1', 'n2'),
+        createTemplateConnection('c2', 'n2', 'n3'),
+      ]
+    },
+    'schedule-action-notification': {
+      templateNodes: [
+        createTemplateNode('n1', 'trigger', 'Scheduled Time', { source: 'schedule', interval: 'daily' }, 100, 200),
+        createTemplateNode('n2', 'action', 'Perform Task', { template: 'scheduled_task' }, 300, 200),
+        createTemplateNode('n3', 'notification', 'Send Notification', { channel: 'email', message: 'Task completed' }, 500, 200),
+      ],
+      templateConnections: [
+        createTemplateConnection('c1', 'n1', 'n2'),
+        createTemplateConnection('c2', 'n2', 'n3'),
+      ]
+    },
+    'trigger-ai-branch-actions': {
+      templateNodes: [
+        createTemplateNode('n1', 'trigger', 'Input Received', { source: 'webhook' }, 100, 200),
+        createTemplateNode('n2', 'ai_action', 'AI Analysis', { model: 'gpt-4', prompt: 'Analyze and classify' }, 300, 200),
+        createTemplateNode('n3', 'condition', 'Decision Point', { field: 'category', operator: 'equals', value: 'priority' }, 500, 200),
+        createTemplateNode('n4', 'action', 'Handle Priority', { template: 'priority_handler' }, 700, 100),
+        createTemplateNode('n5', 'action', 'Handle Standard', { template: 'standard_handler' }, 700, 300),
+      ],
+      templateConnections: [
+        createTemplateConnection('c1', 'n1', 'n2'),
+        createTemplateConnection('c2', 'n2', 'n3'),
+        createTemplateConnection('c3', 'n3', 'n4', 'Priority'),
+        createTemplateConnection('c4', 'n3', 'n5', 'Standard'),
+      ]
+    },
+  };
+  return patterns[pattern] || patterns['trigger-ai-condition-action'];
 }
 
 export function getIndustryTemplates(industry: string): IndustryTemplate[] {
   const allTemplates: IndustryTemplate[] = [
     // IT Industry Templates
-    { id: 'tpl_it_1', name: 'IT Support Ticket Routing', description: 'Automatically classify and route IT support tickets to the appropriate team based on priority and category', category: 'IT Support', industry: 'it', nodes: 5, tags: ['ticketing', 'routing', 'support'] },
-    { id: 'tpl_it_2', name: 'System Monitoring & Alerts', description: 'Monitor system health metrics and trigger automated alerts when thresholds are exceeded', category: 'Monitoring', industry: 'it', nodes: 4, tags: ['monitoring', 'alerts', 'infrastructure'] },
-    { id: 'tpl_it_3', name: 'Employee Onboarding Automation', description: 'Automate IT onboarding process including account creation, access provisioning, and equipment setup', category: 'Onboarding', industry: 'it', nodes: 6, tags: ['onboarding', 'provisioning', 'automation'] },
-    { id: 'tpl_it_4', name: 'Incident Response Workflow', description: 'Automated incident detection, escalation, and resolution tracking for IT incidents', category: 'Incident Management', industry: 'it', nodes: 5, tags: ['incident', 'response', 'escalation'] },
-    { id: 'tpl_it_5', name: 'Server Maintenance Scheduler', description: 'Schedule and automate server maintenance tasks with notifications and rollback procedures', category: 'Maintenance', industry: 'it', nodes: 4, tags: ['maintenance', 'scheduling', 'servers'] },
-    { id: 'tpl_it_6', name: 'Security Threat Detection', description: 'AI-powered security monitoring and automated threat response workflows', category: 'Security', industry: 'it', nodes: 5, tags: ['security', 'threat', 'ai'] },
-    { id: 'tpl_it_7', name: 'Documentation Auto-Generator', description: 'Automatically generate and update technical documentation from code and system changes', category: 'Documentation', industry: 'it', nodes: 4, tags: ['documentation', 'automation', 'ai'] },
-    { id: 'tpl_it_8', name: 'DevOps Pipeline Automation', description: 'Automate CI/CD pipeline stages with testing, deployment, and rollback capabilities', category: 'DevOps', industry: 'it', nodes: 6, tags: ['devops', 'ci/cd', 'deployment'] },
+    { 
+      id: 'tpl_it_1', name: 'IT Support Ticket Routing', description: 'Automatically classify and route IT support tickets to the appropriate team based on priority and category', category: 'IT Support', industry: 'it', nodes: 5, tags: ['ticketing', 'routing', 'support'],
+      templateNodes: [
+        createTemplateNode('n1', 'trigger', 'New Ticket Received', { source: 'webhook', webhookUrl: '/tickets' }, 100, 200),
+        createTemplateNode('n2', 'ai_action', 'Classify Ticket', { model: 'gpt-4', prompt: 'Classify this IT support ticket by category and priority' }, 300, 200),
+        createTemplateNode('n3', 'condition', 'Priority Check', { field: 'priority', operator: 'equals', value: 'high' }, 500, 200),
+        createTemplateNode('n4', 'action', 'Route to L1 Support', { template: 'assign_l1' }, 700, 100),
+        createTemplateNode('n5', 'notification', 'Alert Manager', { channel: 'slack', message: 'High priority ticket assigned' }, 700, 300),
+      ],
+      templateConnections: [
+        createTemplateConnection('c1', 'n1', 'n2'),
+        createTemplateConnection('c2', 'n2', 'n3'),
+        createTemplateConnection('c3', 'n3', 'n4', 'High'),
+        createTemplateConnection('c4', 'n3', 'n5', 'Normal'),
+      ]
+    },
+    { 
+      id: 'tpl_it_2', name: 'System Monitoring & Alerts', description: 'Monitor system health metrics and trigger automated alerts when thresholds are exceeded', category: 'Monitoring', industry: 'it', nodes: 4, tags: ['monitoring', 'alerts', 'infrastructure'],
+      templateNodes: [
+        createTemplateNode('n1', 'trigger', 'System Metrics', { source: 'schedule', interval: '5m' }, 100, 200),
+        createTemplateNode('n2', 'action', 'Check Thresholds', { template: 'metric_check' }, 300, 200),
+        createTemplateNode('n3', 'condition', 'Threshold Exceeded?', { field: 'cpu_usage', operator: 'gte', value: '90' }, 500, 200),
+        createTemplateNode('n4', 'notification', 'Send Alert', { channel: 'email', message: 'System alert: CPU usage critical' }, 700, 200),
+      ],
+      templateConnections: [
+        createTemplateConnection('c1', 'n1', 'n2'),
+        createTemplateConnection('c2', 'n2', 'n3'),
+        createTemplateConnection('c3', 'n3', 'n4', 'Yes'),
+      ]
+    },
+    { 
+      id: 'tpl_it_3', name: 'Employee Onboarding Automation', description: 'Automate IT onboarding process including account creation, access provisioning, and equipment setup', category: 'Onboarding', industry: 'it', nodes: 6, tags: ['onboarding', 'provisioning', 'automation'],
+      templateNodes: [
+        createTemplateNode('n1', 'trigger', 'New Hire Form', { source: 'form', formId: 'new_hire' }, 100, 200),
+        createTemplateNode('n2', 'action', 'Create Email Account', { template: 'create_email' }, 300, 200),
+        createTemplateNode('n3', 'integration', 'Setup AD Account', { provider: 'active_directory', action: 'create_user' }, 500, 200),
+        createTemplateNode('n4', 'action', 'Assign Licenses', { template: 'assign_software' }, 700, 200),
+        createTemplateNode('n5', 'action', 'Order Equipment', { template: 'order_hardware' }, 900, 200),
+        createTemplateNode('n6', 'notification', 'Welcome Email', { channel: 'email', message: 'Welcome to the team!' }, 1100, 200),
+      ],
+      templateConnections: [
+        createTemplateConnection('c1', 'n1', 'n2'),
+        createTemplateConnection('c2', 'n2', 'n3'),
+        createTemplateConnection('c3', 'n3', 'n4'),
+        createTemplateConnection('c4', 'n4', 'n5'),
+        createTemplateConnection('c5', 'n5', 'n6'),
+      ]
+    },
+    { 
+      id: 'tpl_it_4', name: 'Incident Response Workflow', description: 'Automated incident detection, escalation, and resolution tracking for IT incidents', category: 'Incident Management', industry: 'it', nodes: 5, tags: ['incident', 'response', 'escalation'],
+      templateNodes: [
+        createTemplateNode('n1', 'trigger', 'Incident Detected', { source: 'webhook', source_system: 'monitoring' }, 100, 200),
+        createTemplateNode('n2', 'ai_action', 'Analyze Incident', { model: 'gpt-4', prompt: 'Analyze this incident and suggest resolution steps' }, 300, 200),
+        createTemplateNode('n3', 'condition', 'Severity Check', { field: 'severity', operator: 'equals', value: 'critical' }, 500, 200),
+        createTemplateNode('n4', 'action', 'Escalate to On-Call', { template: 'escalate_critical' }, 700, 100),
+        createTemplateNode('n5', 'action', 'Create Ticket', { template: 'create_incident_ticket' }, 700, 300),
+      ],
+      templateConnections: [
+        createTemplateConnection('c1', 'n1', 'n2'),
+        createTemplateConnection('c2', 'n2', 'n3'),
+        createTemplateConnection('c3', 'n3', 'n4', 'Critical'),
+        createTemplateConnection('c4', 'n3', 'n5', 'Normal'),
+      ]
+    },
+    { 
+      id: 'tpl_it_5', name: 'Server Maintenance Scheduler', description: 'Schedule and automate server maintenance tasks with notifications and rollback procedures', category: 'Maintenance', industry: 'it', nodes: 4, tags: ['maintenance', 'scheduling', 'servers'],
+      templateNodes: [
+        createTemplateNode('n1', 'trigger', 'Maintenance Window', { source: 'schedule', cron: '0 2 * * 0' }, 100, 200),
+        createTemplateNode('n2', 'action', 'Start Maintenance', { template: 'begin_maintenance' }, 300, 200),
+        createTemplateNode('n3', 'action', 'Run Updates', { template: 'apply_patches' }, 500, 200),
+        createTemplateNode('n4', 'notification', 'Notify Team', { channel: 'slack', message: 'Server maintenance completed' }, 700, 200),
+      ],
+      templateConnections: [
+        createTemplateConnection('c1', 'n1', 'n2'),
+        createTemplateConnection('c2', 'n2', 'n3'),
+        createTemplateConnection('c3', 'n3', 'n4'),
+      ]
+    },
+    { 
+      id: 'tpl_it_6', name: 'Security Threat Detection', description: 'AI-powered security monitoring and automated threat response workflows', category: 'Security', industry: 'it', nodes: 5, tags: ['security', 'threat', 'ai'],
+      templateNodes: [
+        createTemplateNode('n1', 'trigger', 'Security Event', { source: 'webhook', source_system: 'siem' }, 100, 200),
+        createTemplateNode('n2', 'ai_action', 'Analyze Threat', { model: 'gpt-4', prompt: 'Analyze this security event for potential threats' }, 300, 200),
+        createTemplateNode('n3', 'condition', 'Threat Level', { field: 'threat_level', operator: 'gte', value: 'high' }, 500, 200),
+        createTemplateNode('n4', 'action', 'Block IP', { template: 'block_ip_address' }, 700, 100),
+        createTemplateNode('n5', 'notification', 'Alert Security Team', { channel: 'slack', message: 'Security threat detected' }, 700, 300),
+      ],
+      templateConnections: [
+        createTemplateConnection('c1', 'n1', 'n2'),
+        createTemplateConnection('c2', 'n2', 'n3'),
+        createTemplateConnection('c3', 'n3', 'n4', 'High'),
+        createTemplateConnection('c4', 'n3', 'n5', 'Medium'),
+      ]
+    },
+    { 
+      id: 'tpl_it_7', name: 'Documentation Auto-Generator', description: 'Automatically generate and update technical documentation from code and system changes', category: 'Documentation', industry: 'it', nodes: 4, tags: ['documentation', 'automation', 'ai'],
+      templateNodes: [
+        createTemplateNode('n1', 'trigger', 'Code Commit', { source: 'webhook', source_system: 'github' }, 100, 200),
+        createTemplateNode('n2', 'ai_action', 'Generate Docs', { model: 'gpt-4', prompt: 'Generate technical documentation for these code changes' }, 300, 200),
+        createTemplateNode('n3', 'transform', 'Format Output', { mapping: { format: 'markdown' } }, 500, 200),
+        createTemplateNode('n4', 'integration', 'Update Wiki', { provider: 'notion', action: 'update_page' }, 700, 200),
+      ],
+      templateConnections: [
+        createTemplateConnection('c1', 'n1', 'n2'),
+        createTemplateConnection('c2', 'n2', 'n3'),
+        createTemplateConnection('c3', 'n3', 'n4'),
+      ]
+    },
+    { 
+      id: 'tpl_it_8', name: 'DevOps Pipeline Automation', description: 'Automate CI/CD pipeline stages with testing, deployment, and rollback capabilities', category: 'DevOps', industry: 'it', nodes: 6, tags: ['devops', 'ci/cd', 'deployment'],
+      templateNodes: [
+        createTemplateNode('n1', 'trigger', 'Code Push', { source: 'webhook', source_system: 'github' }, 100, 200),
+        createTemplateNode('n2', 'action', 'Run Tests', { template: 'execute_tests' }, 300, 200),
+        createTemplateNode('n3', 'condition', 'Tests Passed?', { field: 'test_status', operator: 'equals', value: 'success' }, 500, 200),
+        createTemplateNode('n4', 'action', 'Deploy to Staging', { template: 'deploy_staging' }, 700, 100),
+        createTemplateNode('n5', 'approval', 'Manual Approval', { approver: 'devops_lead' }, 900, 100),
+        createTemplateNode('n6', 'action', 'Deploy to Production', { template: 'deploy_production' }, 1100, 100),
+      ],
+      templateConnections: [
+        createTemplateConnection('c1', 'n1', 'n2'),
+        createTemplateConnection('c2', 'n2', 'n3'),
+        createTemplateConnection('c3', 'n3', 'n4', 'Yes'),
+        createTemplateConnection('c4', 'n4', 'n5'),
+        createTemplateConnection('c5', 'n5', 'n6'),
+      ]
+    },
 
     // Healthcare Industry Templates
-    { id: 'tpl_health_1', name: 'Patient Appointment Scheduling', description: 'Automate patient appointment booking, reminders, and rescheduling workflows', category: 'Scheduling', industry: 'healthcare', nodes: 5, tags: ['appointments', 'scheduling', 'patients'] },
-    { id: 'tpl_health_2', name: 'Medical Records Management', description: 'Automate medical record creation, updates, and secure access management', category: 'Records', industry: 'healthcare', nodes: 4, tags: ['records', 'documentation', 'compliance'] },
-    { id: 'tpl_health_3', name: 'Patient Intake Automation', description: 'Streamline patient intake with digital forms, insurance verification, and data validation', category: 'Intake', industry: 'healthcare', nodes: 6, tags: ['intake', 'forms', 'verification'] },
-    { id: 'tpl_health_4', name: 'Billing & Insurance Claims', description: 'Automate medical billing, insurance claim submission, and payment processing', category: 'Billing', industry: 'healthcare', nodes: 5, tags: ['billing', 'insurance', 'claims'] },
-    { id: 'tpl_health_5', name: 'Medication Reminder System', description: 'Automated medication reminders and adherence tracking for patients', category: 'Medication', industry: 'healthcare', nodes: 4, tags: ['medication', 'reminders', 'adherence'] },
-    { id: 'tpl_health_6', name: 'Lab Results Notification', description: 'Automate lab result processing and secure patient notification workflows', category: 'Lab', industry: 'healthcare', nodes: 4, tags: ['lab', 'results', 'notification'] },
-    { id: 'tpl_health_7', name: 'Staff Scheduling Optimization', description: 'AI-powered staff scheduling based on patient volume and availability', category: 'Staffing', industry: 'healthcare', nodes: 5, tags: ['scheduling', 'staff', 'optimization'] },
-    { id: 'tpl_health_8', name: 'Compliance Monitoring', description: 'Automated healthcare compliance monitoring and audit trail generation', category: 'Compliance', industry: 'healthcare', nodes: 4, tags: ['compliance', 'audit', 'monitoring'] },
+    { id: 'tpl_health_1', name: 'Patient Appointment Scheduling', description: 'Automate patient appointment booking, reminders, and rescheduling workflows', category: 'Scheduling', industry: 'healthcare', nodes: 5, tags: ['appointments', 'scheduling', 'patients'], ...generateStandardWorkflow('trigger-ai-branch-actions') },
+    { id: 'tpl_health_2', name: 'Medical Records Management', description: 'Automate medical record creation, updates, and secure access management', category: 'Records', industry: 'healthcare', nodes: 4, tags: ['records', 'documentation', 'compliance'], ...generateStandardWorkflow('trigger-transform-integration') },
+    { id: 'tpl_health_3', name: 'Patient Intake Automation', description: 'Streamline patient intake with digital forms, insurance verification, and data validation', category: 'Intake', industry: 'healthcare', nodes: 6, tags: ['intake', 'forms', 'verification'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_health_4', name: 'Billing & Insurance Claims', description: 'Automate medical billing, insurance claim submission, and payment processing', category: 'Billing', industry: 'healthcare', nodes: 5, tags: ['billing', 'insurance', 'claims'], ...generateStandardWorkflow('trigger-ai-branch-actions') },
+    { id: 'tpl_health_5', name: 'Medication Reminder System', description: 'Automated medication reminders and adherence tracking for patients', category: 'Medication', industry: 'healthcare', nodes: 4, tags: ['medication', 'reminders', 'adherence'], ...generateStandardWorkflow('schedule-action-notification') },
+    { id: 'tpl_health_6', name: 'Lab Results Notification', description: 'Automate lab result processing and secure patient notification workflows', category: 'Lab', industry: 'healthcare', nodes: 4, tags: ['lab', 'results', 'notification'], ...generateStandardWorkflow('trigger-transform-integration') },
+    { id: 'tpl_health_7', name: 'Staff Scheduling Optimization', description: 'AI-powered staff scheduling based on patient volume and availability', category: 'Staffing', industry: 'healthcare', nodes: 5, tags: ['scheduling', 'staff', 'optimization'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_health_8', name: 'Compliance Monitoring', description: 'Automated healthcare compliance monitoring and audit trail generation', category: 'Compliance', industry: 'healthcare', nodes: 4, tags: ['compliance', 'audit', 'monitoring'], ...generateStandardWorkflow('schedule-action-notification') },
 
     // Finance Industry Templates
-    { id: 'tpl_fin_1', name: 'Invoice Processing & Approval', description: 'Automate invoice receipt, data extraction, approval routing, and payment processing', category: 'Accounts Payable', industry: 'finance', nodes: 5, tags: ['invoices', 'approval', 'payment'] },
-    { id: 'tpl_fin_2', name: 'Expense Report Automation', description: 'Streamline expense report submission, approval, and reimbursement workflows', category: 'Expenses', industry: 'finance', nodes: 4, tags: ['expenses', 'reports', 'reimbursement'] },
-    { id: 'tpl_fin_3', name: 'Financial Report Generation', description: 'Automate financial report creation, data aggregation, and distribution', category: 'Reporting', industry: 'finance', nodes: 5, tags: ['reports', 'analytics', 'automation'] },
-    { id: 'tpl_fin_4', name: 'Fraud Detection System', description: 'AI-powered transaction monitoring and automated fraud alert workflows', category: 'Security', industry: 'finance', nodes: 5, tags: ['fraud', 'detection', 'ai'] },
-    { id: 'tpl_fin_5', name: 'Loan Application Processing', description: 'Automate loan application intake, credit checks, and approval workflows', category: 'Lending', industry: 'finance', nodes: 6, tags: ['loans', 'applications', 'credit'] },
-    { id: 'tpl_fin_6', name: 'Regulatory Compliance Monitoring', description: 'Automated compliance checking and regulatory reporting workflows', category: 'Compliance', industry: 'finance', nodes: 4, tags: ['compliance', 'regulatory', 'monitoring'] },
+    { id: 'tpl_fin_1', name: 'Invoice Processing & Approval', description: 'Automate invoice receipt, data extraction, approval routing, and payment processing', category: 'Accounts Payable', industry: 'finance', nodes: 5, tags: ['invoices', 'approval', 'payment'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_fin_2', name: 'Expense Report Automation', description: 'Streamline expense report submission, approval, and reimbursement workflows', category: 'Expenses', industry: 'finance', nodes: 4, tags: ['expenses', 'reports', 'reimbursement'], ...generateStandardWorkflow('trigger-transform-integration') },
+    { id: 'tpl_fin_3', name: 'Financial Report Generation', description: 'Automate financial report creation, data aggregation, and distribution', category: 'Reporting', industry: 'finance', nodes: 5, tags: ['reports', 'analytics', 'automation'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_fin_4', name: 'Fraud Detection System', description: 'AI-powered transaction monitoring and automated fraud alert workflows', category: 'Security', industry: 'finance', nodes: 5, tags: ['fraud', 'detection', 'ai'], ...generateStandardWorkflow('trigger-ai-branch-actions') },
+    { id: 'tpl_fin_5', name: 'Loan Application Processing', description: 'Automate loan application intake, credit checks, and approval workflows', category: 'Lending', industry: 'finance', nodes: 6, tags: ['loans', 'applications', 'credit'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_fin_6', name: 'Regulatory Compliance Monitoring', description: 'Automated compliance checking and regulatory reporting workflows', category: 'Compliance', industry: 'finance', nodes: 4, tags: ['compliance', 'regulatory', 'monitoring'], ...generateStandardWorkflow('schedule-action-notification') },
 
     // Retail/E-commerce Templates
-    { id: 'tpl_ret_1', name: 'Order Fulfillment Automation', description: 'Automate order processing, inventory updates, and shipping notifications', category: 'Order Management', industry: 'retail', nodes: 5, tags: ['orders', 'fulfillment', 'shipping'] },
-    { id: 'tpl_ret_2', name: 'Customer Support Ticket Routing', description: 'Intelligently route customer support requests based on issue type and priority', category: 'Support', industry: 'retail', nodes: 4, tags: ['support', 'tickets', 'routing'] },
-    { id: 'tpl_ret_3', name: 'Inventory Management Alerts', description: 'Monitor inventory levels and automate reorder notifications and alerts', category: 'Inventory', industry: 'retail', nodes: 4, tags: ['inventory', 'alerts', 'reorder'] },
-    { id: 'tpl_ret_4', name: 'Marketing Campaign Automation', description: 'Automate marketing campaign execution, tracking, and performance reporting', category: 'Marketing', industry: 'retail', nodes: 5, tags: ['marketing', 'campaigns', 'automation'] },
-    { id: 'tpl_ret_5', name: 'Return & Refund Processing', description: 'Streamline return requests, approval workflows, and refund processing', category: 'Returns', industry: 'retail', nodes: 5, tags: ['returns', 'refunds', 'processing'] },
-    { id: 'tpl_ret_6', name: 'Customer Feedback Collection', description: 'Automate post-purchase feedback collection and sentiment analysis', category: 'Feedback', industry: 'retail', nodes: 4, tags: ['feedback', 'reviews', 'sentiment'] },
+    { id: 'tpl_ret_1', name: 'Order Fulfillment Automation', description: 'Automate order processing, inventory updates, and shipping notifications', category: 'Order Management', industry: 'retail', nodes: 5, tags: ['orders', 'fulfillment', 'shipping'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_ret_2', name: 'Customer Support Ticket Routing', description: 'Intelligently route customer support requests based on issue type and priority', category: 'Support', industry: 'retail', nodes: 4, tags: ['support', 'tickets', 'routing'], ...generateStandardWorkflow('trigger-ai-branch-actions') },
+    { id: 'tpl_ret_3', name: 'Inventory Management Alerts', description: 'Monitor inventory levels and automate reorder notifications and alerts', category: 'Inventory', industry: 'retail', nodes: 4, tags: ['inventory', 'alerts', 'reorder'], ...generateStandardWorkflow('schedule-action-notification') },
+    { id: 'tpl_ret_4', name: 'Marketing Campaign Automation', description: 'Automate marketing campaign execution, tracking, and performance reporting', category: 'Marketing', industry: 'retail', nodes: 5, tags: ['marketing', 'campaigns', 'automation'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_ret_5', name: 'Return & Refund Processing', description: 'Streamline return requests, approval workflows, and refund processing', category: 'Returns', industry: 'retail', nodes: 5, tags: ['returns', 'refunds', 'processing'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_ret_6', name: 'Customer Feedback Collection', description: 'Automate post-purchase feedback collection and sentiment analysis', category: 'Feedback', industry: 'retail', nodes: 4, tags: ['feedback', 'reviews', 'sentiment'], ...generateStandardWorkflow('trigger-transform-integration') },
 
     // Manufacturing Templates
-    { id: 'tpl_mfg_1', name: 'Production Line Monitoring', description: 'Monitor production metrics and automate quality control alerts', category: 'Production', industry: 'manufacturing', nodes: 5, tags: ['production', 'monitoring', 'quality'] },
-    { id: 'tpl_mfg_2', name: 'Supply Chain Management', description: 'Automate supplier communications, order tracking, and delivery scheduling', category: 'Supply Chain', industry: 'manufacturing', nodes: 6, tags: ['supply', 'chain', 'logistics'] },
-    { id: 'tpl_mfg_3', name: 'Equipment Maintenance Scheduling', description: 'Predictive maintenance scheduling and automated work order generation', category: 'Maintenance', industry: 'manufacturing', nodes: 4, tags: ['maintenance', 'equipment', 'scheduling'] },
-    { id: 'tpl_mfg_4', name: 'Quality Control Automation', description: 'Automated quality inspection workflows and defect tracking', category: 'Quality', industry: 'manufacturing', nodes: 5, tags: ['quality', 'inspection', 'defects'] },
-    { id: 'tpl_mfg_5', name: 'Inventory Reorder System', description: 'Automated inventory monitoring and purchase order generation', category: 'Inventory', industry: 'manufacturing', nodes: 4, tags: ['inventory', 'reorder', 'automation'] },
+    { id: 'tpl_mfg_1', name: 'Production Line Monitoring', description: 'Monitor production metrics and automate quality control alerts', category: 'Production', industry: 'manufacturing', nodes: 5, tags: ['production', 'monitoring', 'quality'], ...generateStandardWorkflow('trigger-ai-branch-actions') },
+    { id: 'tpl_mfg_2', name: 'Supply Chain Management', description: 'Automate supplier communications, order tracking, and delivery scheduling', category: 'Supply Chain', industry: 'manufacturing', nodes: 6, tags: ['supply', 'chain', 'logistics'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_mfg_3', name: 'Equipment Maintenance Scheduling', description: 'Predictive maintenance scheduling and automated work order generation', category: 'Maintenance', industry: 'manufacturing', nodes: 4, tags: ['maintenance', 'equipment', 'scheduling'], ...generateStandardWorkflow('schedule-action-notification') },
+    { id: 'tpl_mfg_4', name: 'Quality Control Automation', description: 'Automated quality inspection workflows and defect tracking', category: 'Quality', industry: 'manufacturing', nodes: 5, tags: ['quality', 'inspection', 'defects'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_mfg_5', name: 'Inventory Reorder System', description: 'Automated inventory monitoring and purchase order generation', category: 'Inventory', industry: 'manufacturing', nodes: 4, tags: ['inventory', 'reorder', 'automation'], ...generateStandardWorkflow('schedule-action-notification') },
 
     // Education Templates
-    { id: 'tpl_edu_1', name: 'Student Enrollment Automation', description: 'Streamline student enrollment, document verification, and onboarding', category: 'Enrollment', industry: 'education', nodes: 5, tags: ['enrollment', 'students', 'onboarding'] },
-    { id: 'tpl_edu_2', name: 'Course Scheduling System', description: 'Automate course scheduling, room allocation, and instructor assignment', category: 'Scheduling', industry: 'education', nodes: 4, tags: ['courses', 'scheduling', 'rooms'] },
-    { id: 'tpl_edu_3', name: 'Grade Processing & Reporting', description: 'Automate grade entry, calculation, and report card generation', category: 'Grades', industry: 'education', nodes: 4, tags: ['grades', 'reports', 'automation'] },
-    { id: 'tpl_edu_4', name: 'Attendance Tracking', description: 'Automated attendance tracking and parent notification workflows', category: 'Attendance', industry: 'education', nodes: 4, tags: ['attendance', 'tracking', 'notification'] },
-    { id: 'tpl_edu_5', name: 'Financial Aid Processing', description: 'Automate financial aid applications, verification, and disbursement', category: 'Financial Aid', industry: 'education', nodes: 5, tags: ['financial', 'aid', 'processing'] },
+    { id: 'tpl_edu_1', name: 'Student Enrollment Automation', description: 'Streamline student enrollment, document verification, and onboarding', category: 'Enrollment', industry: 'education', nodes: 5, tags: ['enrollment', 'students', 'onboarding'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_edu_2', name: 'Course Scheduling System', description: 'Automate course scheduling, room allocation, and instructor assignment', category: 'Scheduling', industry: 'education', nodes: 4, tags: ['courses', 'scheduling', 'rooms'], ...generateStandardWorkflow('schedule-action-notification') },
+    { id: 'tpl_edu_3', name: 'Grade Processing & Reporting', description: 'Automate grade entry, calculation, and report card generation', category: 'Grades', industry: 'education', nodes: 4, tags: ['grades', 'reports', 'automation'], ...generateStandardWorkflow('trigger-transform-integration') },
+    { id: 'tpl_edu_4', name: 'Attendance Tracking', description: 'Automated attendance tracking and parent notification workflows', category: 'Attendance', industry: 'education', nodes: 4, tags: ['attendance', 'tracking', 'notification'], ...generateStandardWorkflow('schedule-action-notification') },
+    { id: 'tpl_edu_5', name: 'Financial Aid Processing', description: 'Automate financial aid applications, verification, and disbursement', category: 'Financial Aid', industry: 'education', nodes: 5, tags: ['financial', 'aid', 'processing'], ...generateStandardWorkflow('trigger-ai-condition-action') },
 
     // Real Estate Templates
-    { id: 'tpl_re_1', name: 'Property Listing Automation', description: 'Automate property listing creation, updates, and multi-platform syndication', category: 'Listings', industry: 'real_estate', nodes: 4, tags: ['listings', 'properties', 'syndication'] },
-    { id: 'tpl_re_2', name: 'Lead Qualification Workflow', description: 'AI-powered lead qualification and automated follow-up sequences', category: 'Leads', industry: 'real_estate', nodes: 5, tags: ['leads', 'qualification', 'follow-up'] },
-    { id: 'tpl_re_3', name: 'Document Management', description: 'Automate document collection, verification, and secure storage', category: 'Documents', industry: 'real_estate', nodes: 4, tags: ['documents', 'verification', 'storage'] },
-    { id: 'tpl_re_4', name: 'Transaction Coordination', description: 'Streamline real estate transactions with automated milestone tracking', category: 'Transactions', industry: 'real_estate', nodes: 6, tags: ['transactions', 'coordination', 'milestones'] },
+    { id: 'tpl_re_1', name: 'Property Listing Automation', description: 'Automate property listing creation, updates, and multi-platform syndication', category: 'Listings', industry: 'real_estate', nodes: 4, tags: ['listings', 'properties', 'syndication'], ...generateStandardWorkflow('trigger-transform-integration') },
+    { id: 'tpl_re_2', name: 'Lead Qualification Workflow', description: 'AI-powered lead qualification and automated follow-up sequences', category: 'Leads', industry: 'real_estate', nodes: 5, tags: ['leads', 'qualification', 'follow-up'], ...generateStandardWorkflow('trigger-ai-branch-actions') },
+    { id: 'tpl_re_3', name: 'Document Management', description: 'Automate document collection, verification, and secure storage', category: 'Documents', industry: 'real_estate', nodes: 4, tags: ['documents', 'verification', 'storage'], ...generateStandardWorkflow('trigger-transform-integration') },
+    { id: 'tpl_re_4', name: 'Transaction Coordination', description: 'Streamline real estate transactions with automated milestone tracking', category: 'Transactions', industry: 'real_estate', nodes: 6, tags: ['transactions', 'coordination', 'milestones'], ...generateStandardWorkflow('trigger-ai-condition-action') },
 
     // Legal Templates
-    { id: 'tpl_legal_1', name: 'Case Management Automation', description: 'Automate case intake, document management, and deadline tracking', category: 'Case Management', industry: 'legal', nodes: 5, tags: ['cases', 'documents', 'deadlines'] },
-    { id: 'tpl_legal_2', name: 'Contract Review Workflow', description: 'AI-assisted contract review and approval routing', category: 'Contracts', industry: 'legal', nodes: 4, tags: ['contracts', 'review', 'approval'] },
-    { id: 'tpl_legal_3', name: 'Client Onboarding', description: 'Automate client intake, conflict checks, and engagement letter generation', category: 'Onboarding', industry: 'legal', nodes: 5, tags: ['clients', 'onboarding', 'intake'] },
-    { id: 'tpl_legal_4', name: 'Billing & Time Tracking', description: 'Automated time tracking, invoice generation, and payment processing', category: 'Billing', industry: 'legal', nodes: 4, tags: ['billing', 'time', 'invoices'] },
+    { id: 'tpl_legal_1', name: 'Case Management Automation', description: 'Automate case intake, document management, and deadline tracking', category: 'Case Management', industry: 'legal', nodes: 5, tags: ['cases', 'documents', 'deadlines'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_legal_2', name: 'Contract Review Workflow', description: 'AI-assisted contract review and approval routing', category: 'Contracts', industry: 'legal', nodes: 4, tags: ['contracts', 'review', 'approval'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_legal_3', name: 'Client Onboarding', description: 'Automate client intake, conflict checks, and engagement letter generation', category: 'Onboarding', industry: 'legal', nodes: 5, tags: ['clients', 'onboarding', 'intake'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_legal_4', name: 'Billing & Time Tracking', description: 'Automated time tracking, invoice generation, and payment processing', category: 'Billing', industry: 'legal', nodes: 4, tags: ['billing', 'time', 'invoices'], ...generateStandardWorkflow('trigger-transform-integration') },
 
     // General Templates (available to all industries)
-    { id: 'tpl_gen_1', name: 'Customer Onboarding', description: 'Automate new customer setup with AI classification and welcome sequences', category: 'CRM', industry: 'general', nodes: 5, tags: ['customers', 'onboarding', 'crm'] },
-    { id: 'tpl_gen_2', name: 'Email Campaign Automation', description: 'Automate email campaign creation, scheduling, and performance tracking', category: 'Marketing', industry: 'general', nodes: 4, tags: ['email', 'campaigns', 'marketing'] },
-    { id: 'tpl_gen_3', name: 'Data Sync Pipeline', description: 'Sync data between systems with transformation and validation', category: 'Integration', industry: 'general', nodes: 4, tags: ['data', 'sync', 'integration'] },
-    { id: 'tpl_gen_4', name: 'Social Media Monitor', description: 'Monitor social media mentions and create automated alerts', category: 'Social', industry: 'general', nodes: 3, tags: ['social', 'monitoring', 'alerts'] },
+    { id: 'tpl_gen_1', name: 'Customer Onboarding', description: 'Automate new customer setup with AI classification and welcome sequences', category: 'CRM', industry: 'general', nodes: 5, tags: ['customers', 'onboarding', 'crm'], ...generateStandardWorkflow('trigger-ai-condition-action') },
+    { id: 'tpl_gen_2', name: 'Email Campaign Automation', description: 'Automate email campaign creation, scheduling, and performance tracking', category: 'Marketing', industry: 'general', nodes: 4, tags: ['email', 'campaigns', 'marketing'], ...generateStandardWorkflow('schedule-action-notification') },
+    { id: 'tpl_gen_3', name: 'Data Sync Pipeline', description: 'Sync data between systems with transformation and validation', category: 'Integration', industry: 'general', nodes: 4, tags: ['data', 'sync', 'integration'], ...generateStandardWorkflow('trigger-transform-integration') },
+    { id: 'tpl_gen_4', name: 'Social Media Monitor', description: 'Monitor social media mentions and create automated alerts', category: 'Social', industry: 'general', nodes: 3, tags: ['social', 'monitoring', 'alerts'], ...generateStandardWorkflow('schedule-action-notification') },
   ];
 
   // Return industry-specific templates plus general templates
