@@ -170,6 +170,9 @@ export function WorkflowBuilderPage() {
   const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  
+  // Sidebar state
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
 
   if (!user?.companyId) return null;
   const workflows = db.getWorkflows(user.companyId);
@@ -462,69 +465,94 @@ export function WorkflowBuilderPage() {
           </div>
         </div>
 
-        {/* Node Config Panel */}
+        {/* Collapsible Node Config Panel */}
         {selectedNode && (
-          <div className="w-72 bg-slate-900/60 border border-slate-800 rounded-xl p-4 overflow-y-auto">
-            {(() => {
-              const node = nodes.find(n => n.id === selectedNode);
-              if (!node) return null;
-              const Icon = getNodeIcon(node.type);
-              return (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getNodeColor(node.type)} flex items-center justify-center`}>
-                      <Icon className="w-4 h-4 text-white" />
+          <div className="relative flex">
+            {/* Toggle Button */}
+            <button
+              onClick={() => setSidebarExpanded(!sidebarExpanded)}
+              className="absolute -left-3 top-4 z-10 w-6 h-12 bg-slate-800 border border-slate-700 rounded-l-lg flex items-center justify-center hover:bg-slate-700 transition-colors group"
+              title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+            >
+              <svg 
+                className={`w-4 h-4 text-slate-400 group-hover:text-white transition-transform ${sidebarExpanded ? '' : 'rotate-180'}`}
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+
+            {/* Sidebar Content */}
+            <div 
+              className={`bg-slate-900/60 border border-slate-800 rounded-xl overflow-hidden transition-all duration-300 ease-in-out ${
+                sidebarExpanded ? 'w-72 opacity-100' : 'w-0 opacity-0 border-l-0'
+              }`}
+            >
+              <div className={`p-4 overflow-y-auto h-full ${sidebarExpanded ? 'visible' : 'invisible'}`}>
+                {(() => {
+                  const node = nodes.find(n => n.id === selectedNode);
+                  if (!node) return null;
+                  const Icon = getNodeIcon(node.type);
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getNodeColor(node.type)} flex items-center justify-center`}>
+                          <Icon className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">{node.label}</p>
+                          <p className="text-xs text-slate-500 capitalize">{node.type.replace('_', ' ')}</p>
+                        </div>
+                      </div>
+                      <Input label="Label" value={node.label} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, label: e.target.value } : n))} />
+                      {node.type === 'trigger' && (
+                        <Select label="Trigger Source" value={node.config.source || 'webhook'} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, source: v } } : n))} options={[{ value: 'webhook', label: 'Webhook' }, { value: 'schedule', label: 'Schedule' }, { value: 'email', label: 'Email' }, { value: 'form', label: 'Form' }]} />
+                      )}
+                      {node.type === 'ai_action' && (
+                        <>
+                          <Select label="AI Model" value={node.config.model || 'gpt-4'} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, model: v } } : n))} options={[{ value: 'gpt-4', label: 'GPT-4' }, { value: 'gpt-3.5', label: 'GPT-3.5 Turbo' }, { value: 'claude', label: 'Claude' }]} />
+                          <Input label="Prompt" value={node.config.prompt || ''} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, prompt: e.target.value } } : n))} placeholder="Describe the AI task..." />
+                        </>
+                      )}
+                      {node.type === 'condition' && (
+                        <>
+                          <Input label="Field" value={node.config.field || ''} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, field: e.target.value } } : n))} placeholder="field_name" />
+                          <Select label="Operator" value={node.config.operator || 'equals'} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, operator: v } } : n))} options={[{ value: 'equals', label: 'Equals' }, { value: 'contains', label: 'Contains' }, { value: 'gte', label: 'Greater or Equal' }, { value: 'lte', label: 'Less or Equal' }]} />
+                          <Input label="Value" value={node.config.value || ''} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, value: e.target.value } } : n))} />
+                        </>
+                      )}
+                      {node.type === 'integration' && (
+                        <>
+                          <Select label="Provider" value={node.config.provider || 'slack'} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, provider: v } } : n))} options={[{ value: 'slack', label: 'Slack' }, { value: 'salesforce', label: 'Salesforce' }, { value: 'gmail', label: 'Gmail' }, { value: 'github', label: 'GitHub' }]} />
+                          <Input label="Action" value={node.config.action || ''} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, action: e.target.value } } : n))} placeholder="e.g., send_message" />
+                        </>
+                      )}
+                      {node.type === 'action' && (
+                        <Select label="Action Type" value={node.config.template || ''} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, template: v } } : n))} options={[{ value: 'send_email', label: 'Send Email' }, { value: 'create_record', label: 'Create Record' }, { value: 'update_record', label: 'Update Record' }, { value: 'webhook_call', label: 'Webhook Call' }]} />
+                      )}
+                      {node.type === 'notification' && (
+                        <>
+                          <Select label="Channel" value={node.config.channel || 'email'} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, channel: v } } : n))} options={[{ value: 'email', label: 'Email' }, { value: 'slack', label: 'Slack' }, { value: 'sms', label: 'SMS' }, { value: 'in_app', label: 'In-App' }]} />
+                          <Input label="Message" value={node.config.message || ''} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, message: e.target.value } } : n))} placeholder="Notification message..." />
+                        </>
+                      )}
+                      {node.type === 'approval' && (
+                        <Input label="Approver" value={node.config.approver || ''} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, approver: e.target.value } } : n))} placeholder="Email or role..." />
+                      )}
+                      {node.type === 'delay' && (
+                        <>
+                          <Input label="Duration" type="number" value={node.config.duration || '60'} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, duration: e.target.value } } : n))} />
+                          <Select label="Unit" value={node.config.unit || 'seconds'} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, unit: v } } : n))} options={[{ value: 'seconds', label: 'Seconds' }, { value: 'minutes', label: 'Minutes' }, { value: 'hours', label: 'Hours' }]} />
+                        </>
+                      )}
+                      <Button variant="danger" size="sm" onClick={() => removeNode(node.id)}><Trash2 className="w-3 h-3" />Delete Node</Button>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">{node.label}</p>
-                      <p className="text-xs text-slate-500 capitalize">{node.type.replace('_', ' ')}</p>
-                    </div>
-                  </div>
-                  <Input label="Label" value={node.label} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, label: e.target.value } : n))} />
-                  {node.type === 'trigger' && (
-                    <Select label="Trigger Source" value={node.config.source || 'webhook'} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, source: v } } : n))} options={[{ value: 'webhook', label: 'Webhook' }, { value: 'schedule', label: 'Schedule' }, { value: 'email', label: 'Email' }, { value: 'form', label: 'Form' }]} />
-                  )}
-                  {node.type === 'ai_action' && (
-                    <>
-                      <Select label="AI Model" value={node.config.model || 'gpt-4'} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, model: v } } : n))} options={[{ value: 'gpt-4', label: 'GPT-4' }, { value: 'gpt-3.5', label: 'GPT-3.5 Turbo' }, { value: 'claude', label: 'Claude' }]} />
-                      <Input label="Prompt" value={node.config.prompt || ''} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, prompt: e.target.value } } : n))} placeholder="Describe the AI task..." />
-                    </>
-                  )}
-                  {node.type === 'condition' && (
-                    <>
-                      <Input label="Field" value={node.config.field || ''} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, field: e.target.value } } : n))} placeholder="field_name" />
-                      <Select label="Operator" value={node.config.operator || 'equals'} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, operator: v } } : n))} options={[{ value: 'equals', label: 'Equals' }, { value: 'contains', label: 'Contains' }, { value: 'gte', label: 'Greater or Equal' }, { value: 'lte', label: 'Less or Equal' }]} />
-                      <Input label="Value" value={node.config.value || ''} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, value: e.target.value } } : n))} />
-                    </>
-                  )}
-                  {node.type === 'integration' && (
-                    <>
-                      <Select label="Provider" value={node.config.provider || 'slack'} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, provider: v } } : n))} options={[{ value: 'slack', label: 'Slack' }, { value: 'salesforce', label: 'Salesforce' }, { value: 'gmail', label: 'Gmail' }, { value: 'github', label: 'GitHub' }]} />
-                      <Input label="Action" value={node.config.action || ''} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, action: e.target.value } } : n))} placeholder="e.g., send_message" />
-                    </>
-                  )}
-                  {node.type === 'action' && (
-                    <Select label="Action Type" value={node.config.template || ''} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, template: v } } : n))} options={[{ value: 'send_email', label: 'Send Email' }, { value: 'create_record', label: 'Create Record' }, { value: 'update_record', label: 'Update Record' }, { value: 'webhook_call', label: 'Webhook Call' }]} />
-                  )}
-                  {node.type === 'notification' && (
-                    <>
-                      <Select label="Channel" value={node.config.channel || 'email'} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, channel: v } } : n))} options={[{ value: 'email', label: 'Email' }, { value: 'slack', label: 'Slack' }, { value: 'sms', label: 'SMS' }, { value: 'in_app', label: 'In-App' }]} />
-                      <Input label="Message" value={node.config.message || ''} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, message: e.target.value } } : n))} placeholder="Notification message..." />
-                    </>
-                  )}
-                  {node.type === 'approval' && (
-                    <Input label="Approver" value={node.config.approver || ''} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, approver: e.target.value } } : n))} placeholder="Email or role..." />
-                  )}
-                  {node.type === 'delay' && (
-                    <>
-                      <Input label="Duration" type="number" value={node.config.duration || '60'} onChange={e => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, duration: e.target.value } } : n))} />
-                      <Select label="Unit" value={node.config.unit || 'seconds'} onChange={v => setNodes(nodes.map(n => n.id === node.id ? { ...n, config: { ...n.config, unit: v } } : n))} options={[{ value: 'seconds', label: 'Seconds' }, { value: 'minutes', label: 'Minutes' }, { value: 'hours', label: 'Hours' }]} />
-                    </>
-                  )}
-                  <Button variant="danger" size="sm" onClick={() => removeNode(node.id)}><Trash2 className="w-3 h-3" />Delete Node</Button>
-                </div>
-              );
-            })()}
+                  );
+                })()}
+              </div>
+            </div>
           </div>
         )}
       </div>
