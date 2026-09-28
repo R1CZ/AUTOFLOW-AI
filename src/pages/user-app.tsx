@@ -1,8 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useAuthStore } from '../stores';
 import * as db from '../lib/database';
+import * as templatesLib from '../lib/templates';
 import { Card, Badge, Button, Table, SearchBar, Modal, Input, Select, StatCard, Tabs, Toast, EmptyState, ProgressBar } from '../components/ui';
-import { Zap, Workflow, Activity, Plus, Play, Pause, Trash2, Copy, Settings, Webhook, Clock, CheckCircle, XCircle, AlertCircle, GitBranch, Brain, Bell, Shield, RefreshCw, Layout } from 'lucide-react';
+import { Zap, Workflow, Activity, Plus, Play, Pause, Trash2, Copy, Settings, Webhook, Clock, CheckCircle, XCircle, AlertCircle, GitBranch, Brain, Bell, Shield, RefreshCw, Layout, Search } from 'lucide-react';
 import type { WorkflowNode, WorkflowConnection } from '../types';
 
 // User Dashboard
@@ -761,37 +762,69 @@ export function UserWebhooksPage() {
 export function UserTemplatesPage() {
   const { user } = useAuthStore();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [difficultyFilter, setDifficultyFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
   if (!user?.companyId) return null;
   const company = db.getCompanyById(user.companyId);
   const industry = company?.industry || 'general';
   const industryInfo = db.INDUSTRIES.find(i => i.value === industry);
   
-  // Get industry-specific templates
-  const allTemplates = db.getIndustryTemplates(industry);
-  const categories = ['all', ...Array.from(new Set(allTemplates.map(t => t.category)))];
-  const templates = categoryFilter === 'all' ? allTemplates : allTemplates.filter(t => t.category === categoryFilter);
+  // Get industry-specific templates from the new library
+  let templates = templatesLib.getTemplatesByIndustry(industry);
+  
+  // Apply search filter
+  if (searchQuery) {
+    templates = templatesLib.searchTemplates(searchQuery, templates);
+  }
+  
+  // Apply category filter
+  if (categoryFilter !== 'all') {
+    templates = templates.filter(t => t.category === categoryFilter);
+  }
+  
+  // Apply difficulty filter
+  if (difficultyFilter !== 'all') {
+    templates = templates.filter(t => t.difficulty === difficultyFilter);
+  }
+  
+  // Get unique categories and tags
+  const categories = ['all', ...templatesLib.getCategories(templates)];
+  const allTags = templatesLib.getAllTags(templates);
+  
+  // Pagination
+  const totalPages = Math.ceil(templates.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedTemplates = templates.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleUseTemplate = (tpl: typeof allTemplates[0]) => {
+  const handleUseTemplate = (tpl: typeof templates[0]) => {
     db.createWorkflow({ 
       name: tpl.name, 
       description: tpl.description, 
       companyId: user.companyId!, 
       createdById: user.id,
-      nodes: tpl.templateNodes,
-      connections: tpl.templateConnections
+      nodes: tpl.nodes,
+      connections: tpl.connections
     });
-    setToast({ message: `Workflow created from "${tpl.name}" template with ${tpl.templateNodes.length} pre-built nodes.`, type: 'success' });
+    setToast({ message: `Workflow created from "${tpl.name}" template with ${tpl.nodes.length} pre-built nodes.`, type: 'success' });
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
     <div className="space-y-6">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      
       <div>
-        <h1 className="text-2xl font-bold text-white">Templates</h1>
+        <h1 className="text-2xl font-bold text-white">Automation Templates</h1>
         <p className="text-sm text-slate-400 mt-1">
-          Industry-specific workflow templates customized for your business
+          Pre-built workflow templates customized for {industryInfo?.label?.toLowerCase() || 'your business'}
         </p>
       </div>
 
@@ -799,53 +832,177 @@ export function UserTemplatesPage() {
       <Card className="p-4 bg-gradient-to-r from-cyan-500/5 to-blue-500/5 border-cyan-500/20">
         <div className="flex items-center gap-3">
           <span className="text-2xl">{industryInfo?.icon || '🏢'}</span>
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-medium text-white">{industryInfo?.label || 'General'} Templates</p>
             <p className="text-xs text-slate-400">
-              These templates are customized for your industry. They include AI-powered workflows relevant to {industryInfo?.label?.toLowerCase() || 'your business'} operations.
+              {templates.length} templates available • Fully configured with AI-powered workflows, integrations, and automation logic
             </p>
           </div>
         </div>
       </Card>
 
-      {/* Category Filter */}
-      <div className="flex gap-2 flex-wrap">
-        {categories.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setCategoryFilter(cat)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              categoryFilter === cat 
-                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
-                : 'bg-slate-800/50 text-slate-400 border border-slate-700 hover:border-slate-600'
-            }`}
-          >
-            {cat === 'all' ? 'All Templates' : cat}
-          </button>
-        ))}
-      </div>
+      {/* Search and Filters */}
+      <Card className="p-4 space-y-4">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <input
+            type="text"
+            placeholder="Search templates by name, description, or tags..."
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            className="w-full bg-slate-900/50 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+          />
+        </div>
 
+        {/* Filters Row */}
+        <div className="flex flex-wrap gap-3">
+          {/* Category Filter */}
+          <div className="flex-1 min-w-[200px]">
+            <label className="text-xs text-slate-400 mb-1.5 block">Category</label>
+            <select
+              value={categoryFilter}
+              onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }}
+              className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+            >
+              {categories.map(cat => (
+                <option key={cat} value={cat}>
+                  {cat === 'all' ? 'All Categories' : cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Difficulty Filter */}
+          <div className="flex-1 min-w-[200px]">
+            <label className="text-xs text-slate-400 mb-1.5 block">Difficulty</label>
+            <select
+              value={difficultyFilter}
+              onChange={(e) => { setDifficultyFilter(e.target.value); setCurrentPage(1); }}
+              className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+            >
+              <option value="all">All Levels</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+
+          {/* Reset Filters */}
+          {(searchQuery || categoryFilter !== 'all' || difficultyFilter !== 'all') && (
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery('');
+                  setCategoryFilter('all');
+                  setDifficultyFilter('all');
+                  setCurrentPage(1);
+                }}
+              >
+                Reset Filters
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Results Count */}
+        <div className="text-xs text-slate-500">
+          Showing {paginatedTemplates.length} of {templates.length} templates
+        </div>
+      </Card>
+
+      {/* Templates Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {templates.map(tpl => (
-          <Card key={tpl.id} hover className="p-4">
+        {paginatedTemplates.map(tpl => (
+          <Card key={tpl.id} hover className="p-4 flex flex-col">
             <div className="flex items-start justify-between mb-2">
               <Badge variant="purple">{tpl.category}</Badge>
-              <span className="text-xs text-slate-500">{tpl.nodes} nodes</span>
+              <Badge variant={
+                tpl.difficulty === 'beginner' ? 'success' : 
+                tpl.difficulty === 'intermediate' ? 'warning' : 'error'
+              }>
+                {tpl.difficulty}
+              </Badge>
             </div>
-            <h3 className="text-sm font-medium text-white mb-1">{tpl.name}</h3>
-            <p className="text-xs text-slate-400 mb-3">{tpl.description}</p>
+            <h3 className="text-sm font-medium text-white mb-2">{tpl.name}</h3>
+            <p className="text-xs text-slate-400 mb-3 flex-1">{tpl.description}</p>
+            
+            {/* Template Stats */}
+            <div className="flex items-center gap-3 mb-3 text-xs text-slate-500">
+              <span className="flex items-center gap-1">
+                <Workflow className="w-3 h-3" />
+                {tpl.nodes.length} nodes
+              </span>
+              <span className="flex items-center gap-1">
+                <Activity className="w-3 h-3" />
+                {tpl.connections.length} connections
+              </span>
+            </div>
+
+            {/* Tags */}
             <div className="flex flex-wrap gap-1 mb-3">
-              {tpl.tags.slice(0, 3).map((tag, i) => (
-                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">#{tag}</span>
+              {tpl.tags.slice(0, 4).map((tag, i) => (
+                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">
+                  #{tag}
+                </span>
               ))}
+              {tpl.tags.length > 4 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">
+                  +{tpl.tags.length - 4}
+                </span>
+              )}
             </div>
-            <Button size="sm" variant="outline" className="w-full" onClick={() => handleUseTemplate(tpl)}><Copy className="w-3 h-3" />Use Template</Button>
+
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="w-full" 
+              onClick={() => handleUseTemplate(tpl)}
+            >
+              <Copy className="w-3 h-3" />
+              Use Template
+            </Button>
           </Card>
         ))}
       </div>
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-slate-400">
+              Page {currentPage} of {totalPages}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {templates.length === 0 && (
-        <EmptyState icon={<Layout className="w-8 h-8" />} title="No templates" description="No templates available for this category." />
+        <EmptyState 
+          icon={<Layout className="w-8 h-8" />} 
+          title="No templates found" 
+          description="Try adjusting your search or filters to find templates." 
+        />
       )}
     </div>
   );
