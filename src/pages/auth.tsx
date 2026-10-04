@@ -153,6 +153,13 @@ export function LoginPage() {
               </div>
             </div>
           </div>
+
+          <div className="mt-8">
+            <a href="#/portfolio" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50 text-sm text-slate-300 hover:text-white hover:border-cyan-500/50 transition-all">
+              <span>📄</span>
+              <span>View Project Portfolio</span>
+            </a>
+          </div>
         </div>
       </div>
 
@@ -401,6 +408,13 @@ export function LoginPage() {
                 <span>User</span><span className="text-slate-600">sarah@techventures.com</span>
               </button>
             </div>
+          </div>
+
+          {/* Portfolio Link */}
+          <div className="mt-4 text-center">
+            <a href="#/portfolio" className="text-sm text-cyan-400 hover:text-cyan-300 font-medium transition-colors">
+              📄 View Project Portfolio / Resume
+            </a>
           </div>
         </div>
       </div>

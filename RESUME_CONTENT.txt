@@ -1,0 +1,171 @@
+================================================================================
+RESUME PROJECT DESCRIPTION - AUTOFLOW AI
+================================================================================
+
+PROJECT TITLE: AutoFlow AI — Enterprise AI Automation Platform
+
+ROLE: Full-Stack Developer & System Architect
+
+DURATION: [Add your duration]
+
+TECH STACK: React, TypeScript, Node.js, Express.js, PostgreSQL, Prisma ORM, 
+            REST APIs, Webhooks, JWT Authentication, Multi-Tenant Architecture
+
+--------------------------------------------------------------------------------
+PROJECT DESCRIPTION (Short Version - For Resume Bullet Points)
+--------------------------------------------------------------------------------
+
+Developed a comprehensive AI-powered automation SaaS platform that enables 
+organizations to build, deploy, and manage intelligent workflows connecting 
+business applications, data sources, and AI services. Built a complete 
+multi-tenant architecture with REST API backend (50+ endpoints), visual 
+workflow builder, and 20+ industry-specific automation templates across IT, 
+Healthcare, Finance, and Retail sectors.
+
+--------------------------------------------------------------------------------
+RESUME BULLET POINTS (Pick 4-6 for your resume)
+--------------------------------------------------------------------------------
+
+• Architected and developed a complete multi-tenant SaaS platform from scratch 
+  with three distinct user experiences (Super Admin, Company Admin, End User) 
+  serving different organizational roles and permissions.
+
+• Built a visual workflow builder with drag-and-drop canvas interface supporting 
+  10+ node types including triggers, AI actions, conditions, integrations, 
+  approvals, and notifications with real-time pan/zoom capabilities.
+
+• Implemented a comprehensive REST API backend with 50+ endpoints using Node.js, 
+  Express, and TypeScript, featuring JWT authentication, session management, and 
+  role-based access control (RBAC).
+
+• Designed and deployed a PostgreSQL database schema with 20+ normalized tables 
+  including proper indexing, foreign key relationships, and multi-tenant data 
+  isolation ensuring complete data separation between organizations.
+
+• Created an industry-specific template library with 20+ pre-built automation 
+  workflows across IT, Healthcare, Finance, Retail, and General Business sectors, 
+  each containing fully configured nodes, connections, and business logic.
+
+• Integrated AI capabilities supporting GPT-4 and Claude models for intelligent 
+  workflow actions including data classification, content extraction, pattern 
+  recognition, and automated decision-making within automation flows.
+
+• Developed a real-time notification system with multi-channel delivery (email, 
+  in-app, Slack, SMS) and comprehensive audit logging for all platform mutations 
+  ensuring compliance and security tracking.
+
+• Implemented subscription billing system with multiple pricing tiers (Starter, 
+  Professional, Enterprise), usage tracking against plan limits, invoice 
+  generation, and payment processing integration architecture.
+
+• Built analytics dashboards with real-time data visualization using Recharts, 
+  displaying execution metrics, performance analytics, revenue tracking, and 
+  system health monitoring across all user tiers.
+
+• Created a responsive, accessible UI with dark theme design system, 
+  glassmorphism effects, and animated AI Flow background that visualizes system 
+  states (idle, processing, success, warning, error) in real-time.
+
+• Integrated 50+ business application connectors including Slack, Salesforce, 
+  HubSpot, GitHub, QuickBooks, and Google Workspace with webhook system for 
+  real-time event-driven automation.
+
+• Implemented security features including multi-tenant data isolation, 
+  role-based access control (RBAC), audit logging, input validation, rate 
+  limiting, and CORS configuration for enterprise-grade protection.
+
+--------------------------------------------------------------------------------
+SIMILAR FORMAT TO YOUR EXAMPLE (Matching Style)
+--------------------------------------------------------------------------------
+
+Developed an AI automation SaaS platform that connects applications and services 
+using REST APIs and webhooks, with visual automation workflows and Node.js/
+TypeScript backend components. Built a multi-tenant architecture with PostgreSQL 
+database, JWT authentication, and role-based access control. Created 20+ 
+industry-specific automation templates across IT, Healthcare, Finance, and 
+Retail sectors with AI-powered workflow actions using GPT-4 and Claude 
+integration. Implemented 50+ REST API endpoints, real-time notification system, 
+analytics dashboards, and subscription billing with usage tracking. Explored 
+integrations with 50+ business applications including Slack, Salesforce, 
+HubSpot, GitHub, and QuickBooks to automate data and application workflows.
+
+--------------------------------------------------------------------------------
+TECHNICAL SKILLS SECTION (Add to your resume)
+--------------------------------------------------------------------------------
+
+LANGUAGES:      TypeScript, JavaScript, SQL, HTML, CSS, Python, PHP
+FRONTEND:       React, Next.js, Tailwind CSS, Zustand, React Router, Recharts
+BACKEND:        Node.js, Express.js, REST APIs, Webhooks, JWT, Prisma ORM
+DATABASES:      PostgreSQL, MySQL, Redis
+AI/ML:          OpenAI API (GPT-4), Anthropic Claude, Prompt Engineering
+CLOUD/DEVOPS:   AWS, Docker, Git, CI/CD
+AUTOMATION:     n8n, Make.com, Zapier, Custom Workflow Engines, Webhooks
+SECURITY:       RBAC, Multi-Tenant Isolation, Rate Limiting, Audit Logging
+
+--------------------------------------------------------------------------------
+ADDITIONAL CONTEXT FOR INTERVIEWS
+--------------------------------------------------------------------------------
+
+KEY CHALLENGES SOLVED:
+
+1. Multi-Tenant Data Isolation
+   - Designed database schema with company_id on all tenant-scoped tables
+   - Implemented middleware to enforce tenant boundaries on all API requests
+   - Prevented cross-tenant data access through query-level isolation
+
+2. Visual Workflow Builder
+   - Built canvas-based drag-and-drop interface with pan/zoom
+   - Implemented node connection system with visual flow lines
+   - Created collapsible sidebar for node configuration
+   - Supported 10+ node types with custom configuration panels
+
+3. Industry-Specific Templates
+   - Designed template system with pre-configured nodes and connections
+   - Created 20+ templates across 5 industries
+   - Each template includes realistic business logic and data flow
+   - Implemented search, filtering, and pagination for scalability
+
+4. AI Integration Architecture
+   - Built abstraction layer supporting multiple AI providers
+   - Implemented configurable prompts for different use cases
+   - Created AI-powered nodes for classification, extraction, routing
+   - Designed for easy addition of new AI models/providers
+
+5. Real-Time System State Visualization
+   - Created HTML5 Canvas-based animated background
+   - Background reacts to actual system states (idle, processing, etc.)
+   - Implemented reduced-motion support for accessibility
+   - Optimized for 60fps performance
+
+BUSINESS IMPACT:
+
+• Enables organizations to reduce operational costs by 60-80% through 
+  automation of repetitive tasks and multi-step workflows
+
+• Provides self-service workflow creation for business users without 
+  requiring technical expertise or IT involvement
+
+• Offers industry-specific templates reducing workflow development time 
+  from weeks to minutes
+
+• Supports 18 different industries with customized automation patterns 
+  and compliance considerations
+
+• Handles enterprise-scale operations with multi-tenant architecture 
+  supporting unlimited companies and users
+
+================================================================================
+HOW TO USE THIS FILE
+================================================================================
+
+1. Copy the bullet points that best match your experience
+2. Customize the duration and any specific metrics
+3. Add your personal information (name, contact, etc.)
+4. Adjust technical skills to match your actual experience
+5. Use the "Similar Format" version if you want a concise paragraph
+6. Access the visual portfolio at: #/portfolio (in the web app)
+
+The portfolio page in the web app provides a visual showcase of this project
+that you can share with potential employers or include in your portfolio.
+
+================================================================================
