@@ -6,7 +6,6 @@ import { LoginPage } from './pages/auth';
 import { PlatformDashboard, CompaniesPage, CompanyDetailPage, PlatformUsersPage, PaymentsPage, AuditLogsPage, PlatformSettingsPage } from './pages/platform';
 import { AdminDashboard, AdminUsersPage, AdminWorkflowsPage, AdminExecutionsPage, AdminIntegrationsPage, AdminBillingPage, AdminSettingsPage } from './pages/company-admin';
 import { UserDashboard, UserAutomationsPage, WorkflowBuilderPage, UserExecutionsPage, UserIntegrationsPage, UserWebhooksPage, UserTemplatesPage, UserAnalyticsPage, UserSettingsPage } from './pages/user-app';
-import { PortfolioPage } from './pages/Portfolio';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { isAuthenticated, user, isLoading, restoreSession } = useAuthStore();
@@ -60,9 +59,6 @@ function AppRoutes() {
       <Routes>
         {/* Auth */}
         <Route path="/login" element={<LoginPage />} />
-        
-        {/* Public Routes */}
-        <Route path="/portfolio" element={<PortfolioPage />} />
         
         {/* Super Admin Routes */}
         <Route path="/platform" element={
